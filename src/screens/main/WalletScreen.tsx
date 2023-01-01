@@ -138,21 +138,21 @@ export default function WalletScreen() {
       >
         <Text style={styles.heading}>Wallet</Text>
         <Text style={styles.balanceLabel}>Total Balance</Text>
-        <Text style={styles.balance}>GHS 2553.56</Text>
+        <Text style={styles.balance}>GHS 0.00</Text>
         <View style={styles.statRow}>
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <Text style={styles.statPeriod}>Today</Text>
               <TrendUpIcon width={20} height={16} />
             </View>
-            <Text style={styles.statAmount}>GHS 253.00</Text>
+            <Text style={styles.statAmount}>GHS 0.00</Text>
           </View>
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <Text style={styles.statPeriod}>This week</Text>
               <TrendDownIcon width={20} height={16} />
             </View>
-            <Text style={styles.statAmount}>GHS 1053.00</Text>
+            <Text style={styles.statAmount}>GHS 0.00</Text>
           </View>
         </View>
         <View style={styles.overviewRow}>
