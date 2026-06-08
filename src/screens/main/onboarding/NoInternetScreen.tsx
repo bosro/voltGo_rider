@@ -19,13 +19,18 @@
  *
  * SVGs needed: no_wifi.svg
  */
-import { Colors, Radius, Typography } from '@/theme';
-import React, { useRef, useEffect } from 'react';
+import { Colors, Radius, Typography } from "@/theme";
+import React, { useRef, useEffect } from "react";
 import {
-  View, Text, StyleSheet, SafeAreaView,
-  StatusBar, Animated, TouchableOpacity,
-} from 'react-native';
-import { SvgXml } from 'react-native-svg';
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  Animated,
+  TouchableOpacity,
+} from "react-native";
+import { SvgXml } from "react-native-svg";
 
 const noWifiSvg = `<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="50" cy="50" r="50" fill="#F5F5F5"/>
@@ -46,14 +51,26 @@ export default function NoInternetScreen({ onRetry }: Props) {
   const bounceAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
 
     // Gentle floating animation on the icon
     Animated.loop(
       Animated.sequence([
-        Animated.timing(bounceAnim, { toValue: -8, duration: 900, useNativeDriver: true }),
-        Animated.timing(bounceAnim, { toValue: 0, duration: 900, useNativeDriver: true }),
-      ])
+        Animated.timing(bounceAnim, {
+          toValue: -8,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
     ).start();
   }, []);
 
@@ -63,22 +80,32 @@ export default function NoInternetScreen({ onRetry }: Props) {
 
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
-          <SvgXml xml={noWifiSvg} width={100} height={100} style={styles.icon} />
+          <SvgXml
+            xml={noWifiSvg}
+            width={100}
+            height={100}
+            style={styles.icon}
+          />
         </Animated.View>
 
         <Text style={styles.heading}>No Internet Connection</Text>
         <Text style={styles.subheading}>
-          Please check your Wi-Fi or mobile data{'\n'}and try again.
+          Please check your Wi-Fi or mobile data{"\n"}and try again.
         </Text>
 
         {onRetry && (
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={onRetry}
+            activeOpacity={0.85}
+          >
             <Text style={styles.retryText}>Try Again</Text>
           </TouchableOpacity>
         )}
 
         <Text style={styles.hint}>
-          Your earnings and completed deliveries{'\n'}are saved and will sync when you're back online.
+          Your earnings and completed deliveries{"\n"}are saved and will sync
+          when you're back online.
         </Text>
       </Animated.View>
     </SafeAreaView>
@@ -87,11 +114,45 @@ export default function NoInternetScreen({ onRetry }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  content: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
   icon: { marginBottom: 28 },
-  heading: { fontFamily: 'HelveticaNeue-CondensedBold', fontSize: 24, color: Colors.textPrimary, textAlign: 'center', marginBottom: 10 },
-  subheading: { fontFamily: 'Poppins-Regular', fontSize: Typography.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 28 },
-  retryBtn: { backgroundColor: Colors.navy, borderRadius: Radius.lg, paddingVertical: 14, paddingHorizontal: 40, marginBottom: 24 },
-  retryText: { fontFamily: 'Poppins-SemiBold', fontSize: Typography.base, color: Colors.white },
-  hint: { fontFamily: 'Poppins-Regular', fontSize: Typography.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  heading: {
+    fontFamily: "HelveticaNeue-CondensedBold",
+    fontSize: 24,
+    color: Colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  subheading: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 28,
+  },
+  retryBtn: {
+    backgroundColor: Colors.navy,
+    borderRadius: Radius.lg,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    marginBottom: 24,
+  },
+  retryText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
+    color: Colors.white,
+  },
+  hint: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.sm,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });

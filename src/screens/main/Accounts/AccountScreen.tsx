@@ -22,7 +22,7 @@ import MenuSupportIcon from "../../../../assets/icons/support.svg";
 import MenuSettingsIcon from "../../../../assets/icons/settings.svg";
 
 // Replace with your actual logout icon path, e.g.: require('@/assets/icons/logout.png')
-const logoutIcon = require('../../../../assets/icons/logout.png');
+const logoutIcon = require('../../../../assets/images/logout.png');
 
 import { SvgProps } from "react-native-svg";
 import { clearAuthToken } from "@/navigation/RootNavigator";

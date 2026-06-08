@@ -66,15 +66,15 @@ interface Bullet {
 
 const BULLETS: Bullet[] = [
   {
-    icon: require("../../../../assets/icons/box.png"),
+    icon: require("../../../../assets/images/box.png"),
     text: "New delivery requests near you",
   },
   {
-    icon: require("../../../../assets/icons/payment.png"),
+    icon: require("../../../../assets/images/payment.png"),
     text: "Payment received confirmations",
   },
   {
-    icon: require("../../../../assets/icons/bell.png"),
+    icon: require("../../../../assets/images/bell.png"),
     text: "Important order status updates",
   },
 ];
