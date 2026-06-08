@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Platform,
   Animated,
@@ -19,6 +18,7 @@ import { MainStackParamList } from "../../navigation/types";
 import PowerCircleIcon from "../../../assets/icons/power-circle.svg";
 import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 import CloseXIcon from "../../../assets/icons/close-x.svg";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type RouteParams = RouteProp<MainStackParamList, "DeliveryRequest">;
 

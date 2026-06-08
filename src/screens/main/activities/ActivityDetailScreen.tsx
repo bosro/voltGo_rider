@@ -96,7 +96,7 @@ export default function ActivityDetailScreen() {
         <View style={styles.mapPreview}>
           {/* map-placeholder.png — optional decorative image */}
           <Image
-            source={require("../../../../assets/images/map-placeholder.png")}
+            source={require("../../../../assets/images/map-bg.png")}
             style={styles.mapImage}
             resizeMode="cover"
           />
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: Colors.white,
   },
-  backArrow: { width: 10, height: 18 },
+  backArrow: { width: 20, height: 18 },
   headerTitle: {
     fontFamily: "HelveticaNeue-CondensedBold",
     fontSize: Typography.xl,
