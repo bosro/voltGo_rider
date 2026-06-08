@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
@@ -19,6 +20,9 @@ import MenuNotifIcon from "../../../../assets/icons/notifications.svg";
 import MenuSecurityIcon from "../../../..//assets/icons/security.svg";
 import MenuSupportIcon from "../../../../assets/icons/support.svg";
 import MenuSettingsIcon from "../../../../assets/icons/settings.svg";
+
+// Replace with your actual logout icon path, e.g.: require('@/assets/icons/logout.png')
+const logoutIcon = require('../../../../assets/icons/logout.png');
 
 import { SvgProps } from "react-native-svg";
 import { clearAuthToken } from "@/navigation/RootNavigator";
@@ -86,7 +90,7 @@ export default function AccountScreen() {
           onPress={handleLogout}
           activeOpacity={0.7}
         >
-          <Text style={{ fontSize: 20, opacity: 0.7 }}>🚪</Text>
+          <Image source={logoutIcon} style={styles.logoutIcon} resizeMode="contain" />
           <Text style={[styles.menuLabel, { color: Colors.errorRed }]}>
             Log out
           </Text>
@@ -155,8 +159,5 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   menuDivider: { height: 1, backgroundColor: Colors.divider },
+  logoutIcon: { width: 22, height: 22, opacity: 0.85 },
 });
-
-
-
-

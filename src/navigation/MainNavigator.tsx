@@ -13,16 +13,6 @@ import EnRoutePickupScreen from "../screens/main/EnRoutePickupScreen";
 import PackageCollectedScreen from "../screens/main/PackageCollectedScreen";
 import CameraCaptureScreen from "../screens/main/CameraCaptureScreen";
 import SubmitPhotoScreen from "../screens/main/SubmitPhotoScreen";
-
-// ── Tab icon imports ───────────────────────────────────────────────
-import HomeDefault from "../../assets/icons/tab-home-default.svg";
-import HomeActive from "../../assets/icons/tab-home-active.svg";
-import WalletDefault from "../../assets/icons/tab-wallet-default.svg";
-import WalletActive from "../../assets/icons/tab-wallet-active.svg";
-import ActivitiesDefault from "../../assets/icons/tab-activities-default.svg";
-import ActivitiesActive from "../../assets/icons/tab-activities-active.svg";
-import AccountDefault from "../../assets/icons/tab-account-default.svg";
-import AccountActive from "../../assets/icons/tab-account-active.svg";
 import PaymentMethodsScreen from "@/screens/main/Accounts/PaymentMethodsScreen";
 import NotificationsScreen from "@/screens/main/Accounts/NotificationsScreen";
 import SecurityScreen from "@/screens/main/Accounts/SecurityScreen";
@@ -35,6 +25,16 @@ import WithdrawScreen from "@/screens/main/wallet/WithdrawScreen";
 import ActivitiesScreen from "@/screens/main/activities/ActivitiesScreen";
 import AccountScreen from "@/screens/main/Accounts/AccountScreen";
 import ActivityDetailScreen from "@/screens/main/activities/ActivityDetailScreen";
+import ProfileScreen from "@/screens/main/Accounts/ProfileScreen";
+
+import HomeDefault from "../../assets/icons/tab-home-default.svg";
+import HomeActive from "../../assets/icons/tab-home-active.svg";
+import WalletDefault from "../../assets/icons/tab-wallet-default.svg";
+import WalletActive from "../../assets/icons/tab-wallet-active.svg";
+import ActivitiesDefault from "../../assets/icons/tab-activities-default.svg";
+import ActivitiesActive from "../../assets/icons/tab-activities-active.svg";
+import AccountDefault from "../../assets/icons/tab-account-default.svg";
+import AccountActive from "../../assets/icons/tab-account-active.svg";
 
 // ── Tab config ─────────────────────────────────────────────────────
 const TABS: {
@@ -85,20 +85,19 @@ const tabStyles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? 20 : 8,
     paddingTop: 10,
     height: Platform.OS === "ios" ? 72 : 58,
-    alignItems: "center",         // center the inner row
+    alignItems: "center",
   },
   inner: {
     flexDirection: "row",
-    width: "60%",                 // ← controls how tight/centered the icons are
+    width: "60%",
     justifyContent: "space-between",
   },
   tab: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 12,        // small extra tap area
+    paddingHorizontal: 12,
   },
 });
-
 
 // ── MainTabs ───────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -124,6 +123,8 @@ export default function MainNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
+
+      {/* Delivery flow */}
       <Stack.Screen
         name="DeliveryRequest"
         component={DeliveryRequestScreen}
@@ -147,6 +148,23 @@ export default function MainNavigator() {
       <Stack.Screen
         name="SubmitPhoto"
         component={SubmitPhotoScreen}
+        options={{ animation: "slide_from_right", gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="DeliveryCompleted"
+        component={DeliveryCompletedScreen}
+        options={{ animation: "fade", gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="RiderOffline"
+        component={RiderOfflineScreen}
+        options={{ animation: "slide_from_bottom", gestureEnabled: true }}
+      />
+
+      {/* Account sub-screens */}
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
       <Stack.Screen
@@ -192,18 +210,6 @@ export default function MainNavigator() {
         name="ActivityDetail"
         component={ActivityDetailScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
-      />
-
-      {/* Delivery flow additions */}
-      <Stack.Screen
-        name="DeliveryCompleted"
-        component={DeliveryCompletedScreen}
-        options={{ animation: "fade", gestureEnabled: false }}
-      />
-      <Stack.Screen
-        name="RiderOffline"
-        component={RiderOfflineScreen}
-        options={{ animation: "slide_from_bottom", gestureEnabled: true }}
       />
     </Stack.Navigator>
   );
