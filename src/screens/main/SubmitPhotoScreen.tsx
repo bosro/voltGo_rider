@@ -19,7 +19,14 @@ type SubmitParams = RouteProp<MainStackParamList, "SubmitPhoto">;
 export default function SubmitPhotoScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<SubmitParams>();
-  const { orderId, photoUri } = route.params;
+  const {
+    orderId,
+    photoUri,
+    amount = 20,
+    pickupAddress = "American House",
+    dropoffAddress = "University of Ghana",
+    itemType = "Parcel",
+  } = route.params;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -47,7 +54,15 @@ export default function SubmitPhotoScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.submitBtn}
-          onPress={() => navigation.navigate("MainTabs")}
+          onPress={() =>
+            navigation.replace("DeliveryCompleted", {
+              orderId,
+              amount,
+              pickupAddress,
+              dropoffAddress,
+              itemType,
+            })
+          }
           activeOpacity={0.88}
         >
           <Text style={styles.submitText}>Submit</Text>

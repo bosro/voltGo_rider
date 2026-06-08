@@ -9,8 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Typography, Radius, Shadow } from "../../theme";
-import { clearAuthToken } from "../../navigation/RootNavigator";
+
 import { CommonActions } from "@react-navigation/native";
 
 import ChevronRightIcon from "../../../assets/icons/chevron-right.svg";
@@ -22,6 +21,8 @@ import MenuSupportIcon from "../../../assets/icons/support.svg";
 import MenuSettingsIcon from "../../../assets/icons/settings.svg";
 
 import { SvgProps } from "react-native-svg";
+import { clearAuthToken } from "@/navigation/RootNavigator";
+import { Colors, Typography, Radius, Shadow } from "@/theme";
 
 const MENU: { key: string; label: string; Icon: React.FC<SvgProps> }[] = [
   { key: "Profile", label: "Profile", Icon: MenuProfileIcon },
@@ -69,7 +70,7 @@ export default function AccountScreen() {
           <React.Fragment key={item.key}>
             <TouchableOpacity
               style={styles.menuRow}
-              onPress={() => {}}
+              onPress={() => navigation.navigate(item.key as any)}
               activeOpacity={0.7}
             >
               <item.Icon width={22} height={22} style={{ opacity: 0.85 }} />
@@ -155,3 +156,5 @@ const styles = StyleSheet.create({
   },
   menuDivider: { height: 1, backgroundColor: Colors.divider },
 });
+
+

@@ -9,11 +9,9 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0D2240"
+      "backgroundColor": "#0B3C5D" // ← changed
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
 
     "fonts": [
       "./assets/fonts/HelveticaNeue-CondensedBold.ttf",
@@ -36,14 +34,14 @@
       },
       "config": {
         // "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
-         "googleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
+        "googleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
       }
     },
 
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0D2240"
+        "backgroundColor": "#0B3C5D" // ← changed
       },
       "package": "com.voltgo.rider",
       "permissions": [
@@ -59,7 +57,7 @@
       "config": {
         "googleMaps": {
           // "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
-          "apiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo" 
+          "apiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
         }
       }
     },
@@ -106,8 +104,14 @@
         "react-native-maps",
         {
           // "googleMapsApiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
-           "googleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
-          
+          "googleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification.png",
+          "color": "#0D2240"
         }
       ]
     ]

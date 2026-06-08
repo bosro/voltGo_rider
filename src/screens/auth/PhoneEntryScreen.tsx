@@ -11,7 +11,7 @@ import GhanaFlag from '../../../assets/icons/flag-ghana.svg';
 import ChevronDown from '../../../assets/icons/chevron-down-sm.svg';
 import GoogleIcon from '../../../assets/icons/google.svg';
 import AppleIcon from '../../../assets/icons/apple.svg';
-import BiometricIcon from '../../../assets/icons/biometric.svg';
+import BiometricIcon from '../../../assets/icons/fingerprint.svg';
 
 export default function PhoneEntryScreen() {
   const navigation = useNavigation<any>();

@@ -12,7 +12,7 @@ import {
   TextInputProps,
   Dimensions,
 } from "react-native";
-import { SvgProps } from "react-native-svg";
+import { SvgProps, SvgXml } from "react-native-svg";
 import { Colors, Typography, Spacing, Radius, Shadow } from "../../theme";
 
 const HERO_HEIGHT = Dimensions.get("window").height * 0.34;
@@ -95,12 +95,14 @@ const btnS = StyleSheet.create({
 // ── InputField ────────────────────────────────────────────────────
 export function InputField({
   IconComponent,
+  iconSvg, // ← add this
   iconWidth = 18,
   iconHeight = 18,
   style,
   ...props
 }: {
   IconComponent?: React.FC<SvgProps>;
+  iconSvg?: string; // ← add this
   iconWidth?: number;
   iconHeight?: number;
   style?: StyleProp<ViewStyle>;
@@ -109,6 +111,14 @@ export function InputField({
     <View style={[fldS.wrap, style]}>
       {IconComponent && (
         <IconComponent
+          width={iconWidth}
+          height={iconHeight}
+          style={fldS.icon}
+        />
+      )}
+      {iconSvg && !IconComponent && (
+        <SvgXml
+          xml={iconSvg}
           width={iconWidth}
           height={iconHeight}
           style={fldS.icon}
@@ -126,21 +136,25 @@ export function InputField({
 // ── DropdownField ─────────────────────────────────────────────────
 export function DropdownField({
   IconComponent,
+  iconSvg, // ← add this
   iconWidth = 18,
   iconHeight = 18,
   placeholder,
   value,
   onPress,
   ChevronComponent,
+  chevronSvg, // ← add this
   style,
 }: {
   IconComponent?: React.FC<SvgProps>;
+  iconSvg?: string; // ← add this
   iconWidth?: number;
   iconHeight?: number;
   placeholder: string;
   value?: string;
   onPress: () => void;
-  ChevronComponent: React.FC<SvgProps>;
+  ChevronComponent?: React.FC<SvgProps>; // make optional
+  chevronSvg?: string; // ← add this
   style?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -156,12 +170,25 @@ export function DropdownField({
           style={fldS.icon}
         />
       )}
+      {iconSvg && !IconComponent && (
+        <SvgXml
+          xml={iconSvg}
+          width={iconWidth}
+          height={iconHeight}
+          style={fldS.icon}
+        />
+      )}
       <Text
         style={[fldS.dropText, !value && { color: Colors.textPlaceholder }]}
       >
         {value || placeholder}
       </Text>
-      <ChevronComponent width={16} height={16} style={fldS.chevron} />
+      {ChevronComponent && (
+        <ChevronComponent width={16} height={16} style={fldS.chevron} />
+      )}
+      {chevronSvg && !ChevronComponent && (
+        <SvgXml xml={chevronSvg} width={16} height={16} style={fldS.chevron} />
+      )}
     </TouchableOpacity>
   );
 }

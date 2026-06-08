@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   StatusBar,
   Platform,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import StandaloneTabBar from "../../components/navigation/BottomTabBar";
 import { Colors, Typography, Radius, lightMapStyle } from "../../theme";
@@ -44,6 +44,12 @@ export default function HomeMapScreen() {
     return () => clearTimeout(timer);
   }, [isOnline]);
 
+  useFocusEffect(
+    useCallback(() => {
+      setIsOnline(true); // re-enable online when returning from RiderOffline
+    }, []),
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -70,7 +76,14 @@ export default function HomeMapScreen() {
       <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
         <TouchableOpacity
           style={[styles.pill, !isOnline && styles.pillOffline]}
-          onPress={() => setIsOnline((v) => !v)}
+          onPress={() => {
+            if (isOnline) {
+              setIsOnline(false);
+              navigation.navigate("RiderOffline");
+            } else {
+              setIsOnline(true);
+            }
+          }}
           activeOpacity={0.85}
         >
           <PowerCircleIcon width={18} height={18} />

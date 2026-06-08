@@ -32,7 +32,7 @@ export default function BiometricSetupScreen() {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       if (!hasHardware) {
         Alert.alert('Not supported', 'Your device does not support biometric authentication.', [
-          { text: 'OK', onPress: () => navigation.replace('MainApp') },
+          { text: 'OK', onPress: () => navigation.replace('NotificationPermission') },
         ]);
         return;
       }
@@ -42,7 +42,7 @@ export default function BiometricSetupScreen() {
         Alert.alert(
           'No biometrics set up',
           'Please set up Face ID or Touch ID in your device Settings first, then come back.',
-          [{ text: 'OK', onPress: () => navigation.replace('MainApp') }],
+          [{ text: 'OK', onPress: () => navigation.replace('NotificationPermission') }],
         );
         return;
       }
@@ -56,19 +56,19 @@ export default function BiometricSetupScreen() {
 
       if (result.success) {
         await AsyncStorage.setItem(BIOMETRIC_KEY, 'true');
-        navigation.replace('MainApp');
+        navigation.replace('NotificationPermission');
       } else if (result.error === 'user_cancel') {
         // stay on screen
       } else {
         Alert.alert(
           'Authentication failed',
           'Biometric sign-in failed. You can enable it later in Settings.',
-          [{ text: 'OK', onPress: () => navigation.replace('MainApp') }],
+          [{ text: 'OK', onPress: () => navigation.replace('NotificationPermission') }],
         );
       }
     } catch (error) {
       console.warn('Biometric error:', error);
-      navigation.replace('MainApp');
+      navigation.replace('NotificationPermission');
     }
   };
 
@@ -91,7 +91,7 @@ export default function BiometricSetupScreen() {
       </Animated.View>
       <View style={styles.footer}>
         <GhostButton label="Use Biometric" onPress={handleUseBiometric} style={styles.btn} />
-        <GhostButton label="Remind me later" onPress={() => navigation.replace('MainApp')} style={[styles.btn, { marginTop: 10 }]} />
+        <GhostButton label="Remind me later" onPress={() => navigation.replace('NotificationPermission')} style={[styles.btn, { marginTop: 10 }]} />
       </View>
     </SafeAreaView>
   );

@@ -8,9 +8,10 @@ import {
   StatusBar,
   SectionList,
 } from "react-native";
-import { Colors, Typography, Radius } from "../../theme";
 
 import FilterSlidersIcon from "../../../assets/icons/filter-sliders.svg";
+import { useNavigation } from "@react-navigation/native";
+import { Colors, Typography } from "@/theme";
 
 const ACTIVITIES = [
   {
@@ -63,6 +64,7 @@ const ACTIVITIES = [
 
 export default function ActivitiesScreen() {
   const [activeTab, setActiveTab] = useState<"Past" | "Upcoming">("Past");
+  const navigation = useNavigation<any>();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -96,14 +98,26 @@ export default function ActivitiesScreen() {
         sections={activeTab === "Past" ? ACTIVITIES : []}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.row}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() =>
+              navigation.navigate("ActivityDetail", {
+                activityId: item.id,
+                destination: item.destination,
+                date: item.date,
+                amount: item.amount,
+                status: "completed",
+              })
+            }
+            activeOpacity={0.75}
+          >
             <Text style={styles.bicycleEmoji}>🚲</Text>
             <View style={styles.rowText}>
               <Text style={styles.destination}>{item.destination}</Text>
               <Text style={styles.dateTime}>{item.date}</Text>
             </View>
             <Text style={styles.amount}>GHS {item.amount}</Text>
-          </View>
+          </TouchableOpacity>
         )}
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>

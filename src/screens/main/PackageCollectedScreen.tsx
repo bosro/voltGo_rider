@@ -161,6 +161,10 @@ export default function PackageCollectedScreen() {
             navigation.navigate("CameraCapture", {
               orderId,
               mode: "delivery_proof",
+              amount: price,
+              pickupAddress,
+              dropoffAddress,
+              itemType,
             })
           }
           activeOpacity={0.88}

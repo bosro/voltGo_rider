@@ -76,7 +76,14 @@ export default function CameraCaptureScreen() {
       setIsCapturing(true);
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
       if (photo?.uri) {
-        navigation.replace("SubmitPhoto", { orderId, photoUri: photo.uri });
+        navigation.replace("SubmitPhoto", {
+          orderId,
+          photoUri: photo.uri,
+          amount: route.params.amount,
+          pickupAddress: route.params.pickupAddress,
+          dropoffAddress: route.params.dropoffAddress,
+          itemType: route.params.itemType,
+        });
       }
     } catch (error) {
       Alert.alert("Error", "Failed to take photo. Please try again.");

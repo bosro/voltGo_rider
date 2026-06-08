@@ -175,13 +175,17 @@ export default function WalletScreen() {
         <View style={{ height: 16 }} />
         <TouchableOpacity
           style={styles.historyBtn}
-          onPress={() => navigation.navigate("Activities")}
+          onPress={() => navigation.navigate("TransactionHistory")}
           activeOpacity={0.8}
         >
           <Text style={styles.historyText}>History</Text>
         </TouchableOpacity>
         <View style={{ height: 12 }} />
-        <TouchableOpacity style={styles.withdrawBtn} activeOpacity={0.88}>
+        <TouchableOpacity
+          style={styles.withdrawBtn}
+          onPress={() => navigation.navigate("Withdraw")}
+          activeOpacity={0.88}
+        >
           <Text style={styles.withdrawText}>Withdraw</Text>
         </TouchableOpacity>
         <View style={{ height: 16 }} />
