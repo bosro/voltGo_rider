@@ -9,7 +9,7 @@ import {
   SectionList,
 } from "react-native";
 
-import FilterSlidersIcon from "../../../assets/icons/filter-sliders.svg";
+import FilterSlidersIcon from "../../../../assets/icons/filter-sliders.svg";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Typography } from "@/theme";
 
@@ -214,3 +214,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
 });
+
+
+

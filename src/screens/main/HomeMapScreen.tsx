@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import StandaloneTabBar from "../../components/navigation/BottomTabBar";
 import { Colors, Typography, Radius, lightMapStyle } from "../../theme";
 
 import PowerCircleIcon from "../../../assets/icons/power-circle.svg";
@@ -93,9 +92,7 @@ export default function HomeMapScreen() {
         </TouchableOpacity>
       </SafeAreaView>
 
-      <View style={styles.tabWrap}>
-        <StandaloneTabBar activeTab="HomeMap" />
-      </View>
+    
     </View>
   );
 }

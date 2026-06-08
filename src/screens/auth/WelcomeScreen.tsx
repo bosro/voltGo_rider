@@ -1,66 +1,115 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, Animated, Dimensions, Image } from 'react-native';
+import {
+  View, Text, StyleSheet, StatusBar, Animated,
+  Dimensions, Image
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NavyButton } from '../../components/common';
 import { Colors, Typography } from '../../theme';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const HERO_HEIGHT = height * 0.58;
 
 export default function WelcomeScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const fadeIn = useRef(new Animated.Value(0)).current;
-  const slideUp = useRef(new Animated.Value(22)).current;
+  const slideUp = useRef(new Animated.Value(40)).current;
+  const imgScale = useRef(new Animated.Value(0.92)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 420, useNativeDriver: true }),
-      Animated.spring(slideUp, { toValue: 0, tension: 58, friction: 10, useNativeDriver: true }),
+      Animated.spring(imgScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 9,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeIn, {
+        toValue: 1,
+        duration: 500,
+        delay: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUp, {
+        toValue: 0,
+        tension: 55,
+        friction: 9,
+        delay: 150,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.navy} />
-      <View style={styles.hero}>
-        <Image
-          source={require('../../../assets/images/onboarding1.png')}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+
+      {/* Hero — image only, no background box */}
+      <View style={[styles.heroSection, { marginTop: insets.top + 12 }]}>
+        <Animated.View
+          style={[styles.illustrationWrap, { transform: [{ scale: imgScale }] }]}
+        >
+          <Image
+            source={require('../../../assets/images/onboarding1.png')}
+            style={{ width: width * 1.2, height: HERO_HEIGHT * 1.1 }}
+            resizeMode="contain"
+          />
+        </Animated.View>
       </View>
-      <Animated.View style={[styles.bottom, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}>
+
+      {/* Content */}
+      <Animated.View
+        style={[
+          styles.bottom,
+          { opacity: fadeIn, transform: [{ translateY: slideUp }] },
+        ]}
+      >
         <Text style={styles.heading}>{'Student Commerce\nAnd Mobility Made Efficient!'}</Text>
         <Text style={styles.body}>
           Deliver, track, and pay seamlessly with one smart{'\n'}app built for campus convenience.
         </Text>
-        <NavyButton label="Get started" onPress={() => navigation.navigate('PhoneEntry')} style={styles.btn} />
+        <NavyButton
+          label="Get started"
+          onPress={() => navigation.navigate('PhoneEntry')}
+          style={[styles.btn, { marginBottom: insets.bottom + 16 }]}
+        />
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
-  hero: {
-    marginHorizontal: 14,
-    marginTop: 10,
-    height: height * 0.52,
-    borderRadius: 22,
-    overflow: 'hidden',
-    backgroundColor: Colors.navy,
+  container: { flex: 1, backgroundColor: Colors.white },
+
+  heroSection: {
+    height: HERO_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  heroImage: {
+  illustrationWrap: {
     width: '100%',
-    height: '100%',
+    height: HERO_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  bottom: { flex: 1, paddingHorizontal: 22, paddingTop: 22 },
+
+  bottom: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    alignItems: 'center',
+  },
   heading: {
     fontFamily: 'HelveticaNeue-CondensedBold',
-    fontSize: 24,
+    fontSize: 26,
     color: Colors.textPrimary,
     textAlign: 'center',
-    lineHeight: 30,
+    lineHeight: 32,
     marginBottom: 12,
+    letterSpacing: -0.3,
   },
   body: {
     fontFamily: 'Poppins-Regular',
@@ -68,7 +117,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: 28,
+    paddingHorizontal: 8,
   },
-  btn: { marginHorizontal: 0 },
+  btn: { width: '100%', marginTop: 'auto', marginHorizontal: 0 },
 });

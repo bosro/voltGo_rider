@@ -33,11 +33,11 @@ export default function SplashScreen() {
         resizeMode="cover"
       />
       {/* Logo on top */}
-      <Animated.Image
+      {/* <Animated.Image
         source={require('../../../assets/images/voltgo-logo.png')}
         style={[styles.logo, { opacity, transform: [{ scale }] }]}
         resizeMode="contain"
-      />
+      /> */}
     </Animated.View>
   );
 }

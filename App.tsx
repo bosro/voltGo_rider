@@ -21,13 +21,12 @@ export default function App() {
     "Poppins-Bold": require("./assets/fonts/Poppins-Bold.ttf"),
   });
 
+  // ✅ ALL hooks declared before any early return
   const onLayout = useCallback(async () => {
     if (fontsLoaded || fontError) {
       await SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) return null;
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -35,6 +34,9 @@ export default function App() {
     });
     return unsubscribe;
   }, []);
+
+  // ✅ Early returns only after all hooks
+  if (!fontsLoaded && !fontError) return null;
 
   if (isConnected === false) {
     return (

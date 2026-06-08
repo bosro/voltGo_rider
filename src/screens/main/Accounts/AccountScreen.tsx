@@ -12,13 +12,13 @@ import { useNavigation } from "@react-navigation/native";
 
 import { CommonActions } from "@react-navigation/native";
 
-import ChevronRightIcon from "../../../assets/icons/chevron-right.svg";
-import MenuProfileIcon from "../../../assets/icons/user-profile.svg";
-import MenuPaymentIcon from "../../../assets/icons/payment.svg";
-import MenuNotifIcon from "../../../assets/icons/notifications.svg";
-import MenuSecurityIcon from "../../../assets/icons/security.svg";
-import MenuSupportIcon from "../../../assets/icons/support.svg";
-import MenuSettingsIcon from "../../../assets/icons/settings.svg";
+import ChevronRightIcon from "../../../../assets/icons/chevron-right.svg";
+import MenuProfileIcon from "../../../../assets/icons/user-profile.svg";
+import MenuPaymentIcon from "../../../../assets/icons/payment.svg";
+import MenuNotifIcon from "../../../../assets/icons/notifications.svg";
+import MenuSecurityIcon from "../../../..//assets/icons/security.svg";
+import MenuSupportIcon from "../../../../assets/icons/support.svg";
+import MenuSettingsIcon from "../../../../assets/icons/settings.svg";
 
 import { SvgProps } from "react-native-svg";
 import { clearAuthToken } from "@/navigation/RootNavigator";
@@ -156,5 +156,7 @@ const styles = StyleSheet.create({
   },
   menuDivider: { height: 1, backgroundColor: Colors.divider },
 });
+
+
 
 

@@ -56,37 +56,49 @@ const TABS: {
 export function BottomTabBar({ state, navigation }: any) {
   return (
     <View style={tabStyles.bar}>
-      {TABS.map((tab, index) => {
-        const isActive = state.index === index;
-        const Icon = isActive ? tab.IconActive : tab.IconDefault;
+      <View style={tabStyles.inner}>
+        {TABS.map((tab, index) => {
+          const isActive = state.index === index;
+          const Icon = isActive ? tab.IconActive : tab.IconDefault;
 
-        return (
-          <TouchableOpacity
-            key={tab.name}
-            style={tabStyles.tab}
-            onPress={() => navigation.navigate(tab.name)}
-            activeOpacity={0.7}
-          >
-            <Icon width={24} height={24} />
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TouchableOpacity
+              key={tab.name}
+              style={tabStyles.tab}
+              onPress={() => navigation.navigate(tab.name)}
+              activeOpacity={0.7}
+            >
+              <Icon width={24} height={24} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const tabStyles = StyleSheet.create({
   bar: {
-    flexDirection: "row",
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderTopColor: "#ECEEF2",
     paddingBottom: Platform.OS === "ios" ? 20 : 8,
     paddingTop: 10,
     height: Platform.OS === "ios" ? 72 : 58,
+    alignItems: "center",         // center the inner row
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center" },
+  inner: {
+    flexDirection: "row",
+    width: "60%",                 // ← controls how tight/centered the icons are
+    justifyContent: "space-between",
+  },
+  tab: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,        // small extra tap area
+  },
 });
+
 
 // ── MainTabs ───────────────────────────────────────────────────────
 const Tab = createBottomTabNavigator<MainTabParamList>();
