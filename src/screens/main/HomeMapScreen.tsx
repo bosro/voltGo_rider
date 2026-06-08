@@ -4,23 +4,15 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Platform,
+  Image,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+// import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Colors, Typography, Radius, lightMapStyle } from "../../theme";
-
 import PowerCircleIcon from "../../../assets/icons/power-circle.svg";
-
-const RIDER_COORD = { latitude: 5.589, longitude: -0.19 };
-const INITIAL_REGION = {
-  latitude: 5.5968,
-  longitude: -0.178,
-  latitudeDelta: 0.06,
-  longitudeDelta: 0.06,
-};
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeMapScreen() {
   const navigation = useNavigation<any>();
@@ -39,13 +31,13 @@ export default function HomeMapScreen() {
         price: 20,
         pickupEta: 6,
       });
-    }, 8000);
+    }, 20000);
     return () => clearTimeout(timer);
   }, [isOnline]);
 
   useFocusEffect(
     useCallback(() => {
-      setIsOnline(true); // re-enable online when returning from RiderOffline
+      setIsOnline(true);
     }, []),
   );
 
@@ -56,21 +48,36 @@ export default function HomeMapScreen() {
         translucent
         backgroundColor="transparent"
       />
+
+      {/* ── Static map image (swap MapView back when ready) ── */}
+      <Image
+        source={require("../../../assets/images/map-bg.png")}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+
+      {/* ── MapView (commented out for stakeholder demo) ──────────────────
       <MapView
         provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
-        initialRegion={INITIAL_REGION}
+        initialRegion={{
+          latitude: 5.5968,
+          longitude: -0.178,
+          latitudeDelta: 0.06,
+          longitudeDelta: 0.06,
+        }}
         customMapStyle={lightMapStyle}
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
       >
-        <Marker coordinate={RIDER_COORD} anchor={{ x: 0.5, y: 0.5 }}>
+        <Marker coordinate={{ latitude: 5.589, longitude: -0.19 }} anchor={{ x: 0.5, y: 0.5 }}>
           <View style={styles.riderMarker}>
             <Text style={{ fontSize: 28 }}>🛵</Text>
           </View>
         </Marker>
       </MapView>
+      ───────────────────────────────────────────────────────────────────── */}
 
       <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
         <TouchableOpacity
@@ -91,8 +98,6 @@ export default function HomeMapScreen() {
           </Text>
         </TouchableOpacity>
       </SafeAreaView>
-
-    
     </View>
   );
 }
@@ -141,5 +146,4 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  tabWrap: { position: "absolute", bottom: 0, left: 0, right: 0 },
 });

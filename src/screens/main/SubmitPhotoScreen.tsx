@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Image,
   Dimensions,
@@ -12,6 +11,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Colors, Typography, Radius, Shadow } from "../../theme";
 import { MainStackParamList } from "../../navigation/types";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 type SubmitParams = RouteProp<MainStackParamList, "SubmitPhoto">;
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   photo: { width: "100%", height: "100%" },
-  btnWrap: { width: "100%", gap: 12 },
+  btnWrap: { width: "100%", gap: 12,  paddingHorizontal: 16},
   retakeBtn: {
     backgroundColor: Colors.inputBg,
     borderRadius: Radius.lg,

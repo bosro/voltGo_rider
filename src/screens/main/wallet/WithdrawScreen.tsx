@@ -15,13 +15,14 @@
  */
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
+  View, Text, StyleSheet, TouchableOpacity, 
   StatusBar, TextInput, Modal, Alert, ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import { Colors, Radius, Shadow, Typography } from '@/theme';
 import { GhostButton, NavyButton } from '@/components/common';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;

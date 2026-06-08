@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   SectionList,
 } from "react-native";
@@ -12,6 +11,8 @@ import {
 import FilterSlidersIcon from "../../../../assets/icons/filter-sliders.svg";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Typography } from "@/theme";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 const ACTIVITIES = [
   {

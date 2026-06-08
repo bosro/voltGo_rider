@@ -17,14 +17,9 @@ import {
 import MainNavigator from "./MainNavigator";
 import NotificationPermissionScreen from "@/screens/main/onboarding/NotificationPermissionScreen";
 
-export const AUTH_TOKEN_KEY = "@voltgo_rider_token";
+import { AUTH_TOKEN_KEY, saveAuthToken, clearAuthToken } from "../utils/authStorage";
 
-export async function saveAuthToken(token: string) {
-  await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
-}
-export async function clearAuthToken() {
-  await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
-}
+
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, StatusBar,
+  View, Text, StyleSheet, StatusBar,
   ScrollView, Animated, Dimensions, Alert, Image,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import {
 } from '../../components/common';
 import { Colors, Typography, Radius } from '../../theme';
 import { RootStackParamList } from '../../navigation/types';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ── Hero image ─────────────────────────────────────────────────────
 // Same image used across all 4 steps as seen in the screenshots

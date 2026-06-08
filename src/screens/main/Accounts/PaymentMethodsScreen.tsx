@@ -13,11 +13,12 @@
  *              trash_delete.svg, plus_navy.svg
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import { NavyButton, GhostButton, InputField, DropdownField, FieldLabel } from '../../../components/common';
 import { Colors, Typography, Radius, Shadow } from '../../../theme';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const trashSvg = `<svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 5H17" stroke="#E53E3E" stroke-width="1.5" stroke-linecap="round"/><path d="M3 5L4 17C4 18.1 4.9 19 6 19H12C13.1 19 14 18.1 14 17L15 5" stroke="#E53E3E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 5V3C6 2.4 6.4 2 7 2H11C11.6 2 12 2.4 12 3V5" stroke="#E53E3E" stroke-width="1.5"/></svg>`;

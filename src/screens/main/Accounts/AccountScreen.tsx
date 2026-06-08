@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Alert,
   Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CommonActions } from "@react-navigation/native";
 
@@ -25,7 +25,7 @@ import MenuSettingsIcon from "../../../../assets/icons/settings.svg";
 const logoutIcon = require('../../../../assets/images/logout.png');
 
 import { SvgProps } from "react-native-svg";
-import { clearAuthToken } from "@/navigation/RootNavigator";
+import { clearAuthToken } from "../../../utils/authStorage";
 import { Colors, Typography, Radius, Shadow } from "@/theme";
 
 const MENU: { key: string; label: string; Icon: React.FC<SvgProps> }[] = [

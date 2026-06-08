@@ -14,10 +14,12 @@
  *              lock_pin.svg, sessions_device.svg, chevron_right.svg
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Switch, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import { Colors, Typography, Radius } from '../../../theme';
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const fingerprintSvg = `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 2C5 3 3 6 3 9" stroke="#0D2240" stroke-width="1.5" stroke-linecap="round"/><path d="M14 2C17 3 19 6 19 9" stroke="#0D2240" stroke-width="1.5" stroke-linecap="round"/><path d="M3 14C3 17 5 20 8 21" stroke="#0D2240" stroke-width="1.5" stroke-linecap="round"/><path d="M19 14C19 17 17 20 14 21" stroke="#0D2240" stroke-width="1.5" stroke-linecap="round"/><path d="M7 11C7 9 8.8 7.5 11 7.5C13.2 7.5 15 9 15 11C15 13.5 13 15 11 16C9 15 7 13.5 7 11Z" stroke="#0D2240" stroke-width="1.3" fill="none"/></svg>`;

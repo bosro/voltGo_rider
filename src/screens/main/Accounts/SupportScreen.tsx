@@ -11,10 +11,12 @@
  * SVGs needed: back_arrow.svg, whatsapp.svg, email_support.svg, phone_call.svg, chevron_down.svg
  */
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity,StatusBar, ScrollView, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import { Colors, Typography, Radius, Shadow } from '../../../theme';
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const whatsappSvg = `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="10" fill="#25D366"/><path d="M7 8C7 8 8 7 9 8C10 9 10.5 10 10 10.5C9.5 11 9 11 10 12C11 13 11.5 12.5 12 12C12.5 11.5 13.5 12 14.5 13C15 13.5 14.5 14.5 14 15C12 16 8 14 7 11C6.5 9.5 7 8 7 8Z" fill="white"/></svg>`;

@@ -7,7 +7,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NavyButton } from '../../components/common';
 import { Colors, Typography, Radius } from '../../theme';
 import { RootStackParamList } from '../../navigation/types';
-import { saveAuthToken } from '../../navigation/RootNavigator';
+import { saveAuthToken } from "../../utils/authStorage";;
 
 const { height } = Dimensions.get('window');
 const OTP_LENGTH = 6;

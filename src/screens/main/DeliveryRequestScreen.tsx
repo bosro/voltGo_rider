@@ -8,9 +8,10 @@ import {
   StatusBar,
   Platform,
   Animated,
+  Image,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+// import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import StandaloneTabBar from "../../components/navigation/BottomTabBar";
 import { Colors, Typography, Radius, Shadow, lightMapStyle } from "../../theme";
 import { MainStackParamList } from "../../navigation/types";
@@ -20,9 +21,6 @@ import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 import CloseXIcon from "../../../assets/icons/close-x.svg";
 
 type RouteParams = RouteProp<MainStackParamList, "DeliveryRequest">;
-
-const PICKUP_COORD = { latitude: 5.5968, longitude: -0.1869 };
-const DROPOFF_COORD = { latitude: 5.6502, longitude: -0.187 };
 
 export default function DeliveryRequestScreen() {
   const navigation = useNavigation<any>();
@@ -37,6 +35,7 @@ export default function DeliveryRequestScreen() {
     price,
     pickupEta,
   } = route.params;
+
   const [countdown, setCountdown] = useState(28);
   const slideUp = useRef(new Animated.Value(60)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -55,25 +54,19 @@ export default function DeliveryRequestScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          navigation.replace("MainTabs");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  setCountdown((prev) => Math.max(prev - 1, 0));
+}, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const mapRegion = {
-    latitude: (PICKUP_COORD.latitude + DROPOFF_COORD.latitude) / 2,
-    longitude: (PICKUP_COORD.longitude + DROPOFF_COORD.longitude) / 2,
-    latitudeDelta: 0.08,
-    longitudeDelta: 0.08,
-  };
+
+  useEffect(() => {
+  if (countdown === 0) {
+    navigation.replace("MainTabs");
+  }
+}, [countdown, navigation]);
 
   return (
     <View style={styles.container}>
@@ -82,44 +75,54 @@ export default function DeliveryRequestScreen() {
         translucent
         backgroundColor="transparent"
       />
+
+      {/* ── Static map image (swap MapView back when ready) ── */}
+      <Image
+        source={require("../../../assets/images/map-bg.png")}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+
+      {/* ── MapView (commented out for stakeholder demo) ──────────────────
       <MapView
         provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
-        region={mapRegion}
+        region={{
+          latitude: (5.5968 + 5.6502) / 2,
+          longitude: (-0.1869 + -0.187) / 2,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        }}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
         customMapStyle={lightMapStyle}
       >
         <Polyline
-          coordinates={[PICKUP_COORD, DROPOFF_COORD]}
+          coordinates={[
+            { latitude: 5.5968, longitude: -0.1869 },
+            { latitude: 5.6502, longitude: -0.187 },
+          ]}
           strokeColor={Colors.navy}
           strokeWidth={4}
         />
-        <Marker coordinate={PICKUP_COORD} anchor={{ x: 0.5, y: 0.5 }}>
-          <View style={styles.pickupDotOuter}>
-            <View style={styles.pickupDot} />
-          </View>
+        <Marker coordinate={{ latitude: 5.5968, longitude: -0.1869 }} anchor={{ x: 0.5, y: 0.5 }}>
+          <View style={styles.pickupDotOuter}><View style={styles.pickupDot} /></View>
         </Marker>
-        <Marker coordinate={DROPOFF_COORD} anchor={{ x: 0.5, y: 1 }}>
+        <Marker coordinate={{ latitude: 5.6502, longitude: -0.187 }} anchor={{ x: 0.5, y: 1 }}>
           <View style={styles.dropoffPin}>
             <View style={styles.dropoffCircle} />
             <View style={styles.dropoffTail} />
           </View>
         </Marker>
         <Marker
-          coordinate={{
-            latitude:
-              (PICKUP_COORD.latitude + DROPOFF_COORD.latitude) / 2 + 0.005,
-            longitude: (PICKUP_COORD.longitude + DROPOFF_COORD.longitude) / 2,
-          }}
+          coordinate={{ latitude: (5.5968 + 5.6502) / 2 + 0.005, longitude: (-0.1869 + -0.187) / 2 }}
           anchor={{ x: 0.5, y: 0.5 }}
         >
-          <View style={styles.etaBadge}>
-            <Text style={styles.etaText}>15 min</Text>
-          </View>
+          <View style={styles.etaBadge}><Text style={styles.etaText}>15 min</Text></View>
         </Marker>
       </MapView>
+      ───────────────────────────────────────────────────────────────────── */}
 
       <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
         <View style={styles.pill}>
@@ -151,7 +154,9 @@ export default function DeliveryRequestScreen() {
             <CloseXIcon width={14} height={14} />
           </TouchableOpacity>
         </View>
+
         <View style={styles.divider} />
+
         <View style={styles.routeSection}>
           <View style={styles.routeLeft}>
             <View style={styles.routeRow}>
@@ -179,6 +184,7 @@ export default function DeliveryRequestScreen() {
           </View>
           <Text style={styles.price}>GHS {price.toFixed(2)}</Text>
         </View>
+
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.acceptBtn}
@@ -197,9 +203,9 @@ export default function DeliveryRequestScreen() {
         </View>
       </Animated.View>
 
-      <View style={styles.tabWrap}>
+      {/* <View style={styles.tabWrap}>
         <StandaloneTabBar activeTab="HomeMap" />
-      </View>
+      </View> */}
     </View>
   );
 }

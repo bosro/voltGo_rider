@@ -13,11 +13,12 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, SectionList,
+ StatusBar, SectionList,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import { Colors, Radius, Typography } from '@/theme';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const earningIconSvg = `<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#E8FFF2"/><path d="M12 22L18 16L22 20L26 14" stroke="#00C07F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M23 14H26V17" stroke="#00C07F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;

@@ -89,7 +89,7 @@ const tabStyles = StyleSheet.create({
   },
   inner: {
     flexDirection: "row",
-    width: "60%",
+    width: "80%",
     justifyContent: "space-between",
   },
   tab: {
@@ -214,3 +214,5 @@ export default function MainNavigator() {
     </Stack.Navigator>
   );
 }
+
+
