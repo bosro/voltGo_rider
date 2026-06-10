@@ -1,71 +1,55 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  SectionList,
-} from "react-native";
-
-import FilterSlidersIcon from "../../../../assets/icons/filter-sliders.svg";
-import { useNavigation } from "@react-navigation/native";
 import { Colors, Typography } from "@/theme";
+import { useNavigation } from "@react-navigation/native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  SectionList,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import FilterSlidersIcon from "../../../../assets/icons/filter-sliders.svg";
+import { useMyOrders } from "../../../hooks/rider/useOrders";
+import { Order } from "../../../lib/api";
 
+/** Group orders by month label for SectionList */
+function groupOrdersByMonth(
+  orders: Order[],
+): { title: string; data: Order[] }[] {
+  const map = new Map<string, Order[]>();
+  for (const order of orders) {
+    const d = new Date(order.created_at);
+    const label = d.toLocaleDateString("en-GB", {
+      month: "long",
+      year: "numeric",
+    });
+    if (!map.has(label)) map.set(label, []);
+    map.get(label)!.push(order);
+  }
+  return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
+}
 
-const ACTIVITIES = [
-  {
-    title: "May 2026",
-    data: [
-      {
-        id: "1",
-        destination: "University of Ghana",
-        date: "20 May . 12:34",
-        amount: 24,
-      },
-      {
-        id: "2",
-        destination: "Madina Old Station",
-        date: "20 May . 12:34",
-        amount: 14,
-      },
-      {
-        id: "3",
-        destination: "East Legon Americana",
-        date: "20 May . 12:34",
-        amount: 44,
-      },
-    ],
-  },
-  {
-    title: "Feb 2026",
-    data: [
-      {
-        id: "4",
-        destination: "University of Ghana",
-        date: "20 May . 12:34",
-        amount: 50,
-      },
-      {
-        id: "5",
-        destination: "University of Ghana",
-        date: "20 May . 12:34",
-        amount: 24,
-      },
-      {
-        id: "6",
-        destination: "Madina Old Station",
-        date: "20 May . 12:34",
-        amount: 14,
-      },
-    ],
-  },
-];
+function formatOrderDate(iso: string) {
+  const d = new Date(iso);
+  return (
+    d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) +
+    " · " +
+    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+  );
+}
 
 export default function ActivitiesScreen() {
   const [activeTab, setActiveTab] = useState<"Past" | "Upcoming">("Past");
   const navigation = useNavigation<any>();
+  const { data: orders = [], isLoading, isError, refetch } = useMyOrders();
+
+  const completedOrders = orders.filter(
+    (o) => o.status === "delivered" || o.status === "cancelled",
+  );
+  const sections = groupOrdersByMonth(completedOrders);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -91,50 +75,84 @@ export default function ActivitiesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity activeOpacity={0.75}>
+        <TouchableOpacity activeOpacity={0.75} onPress={() => refetch()}>
           <FilterSlidersIcon width={22} height={20} />
         </TouchableOpacity>
       </View>
-      <SectionList
-        sections={activeTab === "Past" ? ACTIVITIES : []}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() =>
-              navigation.navigate("ActivityDetail", {
-                activityId: item.id,
-                destination: item.destination,
-                date: item.date,
-                amount: item.amount,
-                status: "completed",
-              })
-            }
-            activeOpacity={0.75}
-          >
-            <Text style={styles.bicycleEmoji}>🚲</Text>
-            <View style={styles.rowText}>
-              <Text style={styles.destination}>{item.destination}</Text>
-              <Text style={styles.dateTime}>{item.date}</Text>
-            </View>
-            <Text style={styles.amount}>GHS {item.amount}</Text>
+
+      {isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={Colors.navy} />
+        </View>
+      ) : isError ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>Failed to load orders.</Text>
+          <TouchableOpacity onPress={() => refetch()} style={{ marginTop: 8 }}>
+            <Text
+              style={{ color: Colors.navy, fontFamily: "Poppins-SemiBold" }}
+            >
+              Retry
+            </Text>
           </TouchableOpacity>
-        )}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionLine} />
-          </View>
-        )}
-        ItemSeparatorComponent={() => <View style={styles.rowDivider} />}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 16 }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No upcoming deliveries</Text>
-          </View>
-        }
-      />
+        </View>
+      ) : (
+        <SectionList
+          sections={activeTab === "Past" ? sections : []}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() =>
+                navigation.navigate("ActivityDetail", {
+                  activityId: item.id,
+                  destination: item.dropoff_address,
+                  date: formatOrderDate(item.created_at),
+                  amount: item.price,
+                  status:
+                    item.status === "delivered" ? "completed" : "cancelled",
+                })
+              }
+              activeOpacity={0.75}
+            >
+              <Text style={styles.bicycleEmoji}>🚲</Text>
+              <View style={styles.rowText}>
+                <Text style={styles.destination}>{item.dropoff_address}</Text>
+                <Text style={styles.dateTime}>
+                  {formatOrderDate(item.created_at)}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.amount,
+                  item.status === "cancelled" && { color: Colors.errorRed },
+                ]}
+              >
+                {item.status === "cancelled"
+                  ? "Cancelled"
+                  : `GHS ${item.price.toFixed(2)}`}
+              </Text>
+            </TouchableOpacity>
+          )}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <View style={styles.sectionLine} />
+            </View>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.rowDivider} />}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 16 }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>
+                {activeTab === "Upcoming"
+                  ? "No upcoming deliveries"
+                  : "No past deliveries yet"}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -208,6 +226,7 @@ const styles = StyleSheet.create({
     color: Colors.textGreen,
   },
   rowDivider: { height: 1, backgroundColor: Colors.divider },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: { paddingTop: 60, alignItems: "center" },
   emptyText: {
     fontFamily: "Poppins-Regular",
@@ -215,6 +234,3 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
 });
-
-
-

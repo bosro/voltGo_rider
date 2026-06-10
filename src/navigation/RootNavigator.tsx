@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RootStackParamList } from "./types";
 
 import SplashScreen from "../screens/auth/SplashScreen";
@@ -17,28 +16,23 @@ import {
 import MainNavigator from "./MainNavigator";
 import NotificationPermissionScreen from "@/screens/main/onboarding/NotificationPermissionScreen";
 
-import { AUTH_TOKEN_KEY, saveAuthToken, clearAuthToken } from "../utils/authStorage";
-
-
+import { useAuthStore } from "../store/authStore";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated, isHydrating, hydrate } = useAuthStore();
 
   useEffect(() => {
-    AsyncStorage.getItem(AUTH_TOKEN_KEY)
-      .then((token) => setIsLoggedIn(!!token))
-      .catch(() => setIsLoggedIn(false))
-      .finally(() => setIsLoading(false));
+    hydrate();
   }, []);
 
-  if (isLoading) return null;
+  // Still reading AsyncStorage on first boot
+  if (isHydrating) return null;
 
   return (
     <Stack.Navigator
-      initialRouteName={isLoggedIn ? "MainApp" : "Splash"}
+      initialRouteName={isAuthenticated ? "MainApp" : "Splash"}
       screenOptions={{ headerShown: false, gestureEnabled: false }}
     >
       <Stack.Screen name="Splash" component={SplashScreen} />

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, ScrollView, Animated, Image,
+  SafeAreaView, StatusBar, ScrollView, Animated, Image, Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NavyButton } from '../../components/common';
 import { Colors, Typography, Radius } from '../../theme';
+import { useSendOtp } from '../../hooks/auth/useAuth';
 
 import GhanaFlag from '../../../assets/icons/flag-ghana.svg';
 import ChevronDown from '../../../assets/icons/chevron-down-sm.svg';
@@ -19,6 +20,8 @@ export default function PhoneEntryScreen() {
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(20)).current;
 
+  const { mutateAsync: sendOtp, isPending } = useSendOtp();
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeIn, { toValue: 1, duration: 380, useNativeDriver: true }),
@@ -26,9 +29,15 @@ export default function PhoneEntryScreen() {
     ]).start();
   }, []);
 
-  const handleContinue = () => {
-    if (phone.trim().length >= 9) {
-      navigation.navigate('OTP', { phone: `+233${phone}` });
+  const handleContinue = async () => {
+    if (phone.trim().length < 9) return;
+    const fullPhone = `+233${phone.trim()}`;
+    try {
+      await sendOtp(fullPhone);
+      navigation.navigate('OTP', { phone: fullPhone });
+    } catch (err: any) {
+      const message = err?.response?.data?.message ?? 'Failed to send OTP. Please try again.';
+      Alert.alert('Error', message);
     }
   };
 
@@ -91,7 +100,11 @@ export default function PhoneEntryScreen() {
           ))}
 
           <View style={{ height: 20 }} />
-          <NavyButton label="Continue" onPress={handleContinue} />
+          <NavyButton
+            label={isPending ? 'Sending...' : 'Continue'}
+            onPress={handleContinue}
+            disabled={isPending || phone.trim().length < 9}
+          />
           <Text style={styles.terms}>
             By continuing, you agree to our{' '}
             <Text style={styles.termsLink}>terms and{'\n'}conditions and privacy policies</Text>.

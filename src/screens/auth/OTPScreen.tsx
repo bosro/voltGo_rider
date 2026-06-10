@@ -1,13 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, Animated, Dimensions, Image,
+  SafeAreaView, StatusBar, Animated, Dimensions, Image, Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NavyButton } from '../../components/common';
 import { Colors, Typography, Radius } from '../../theme';
 import { RootStackParamList } from '../../navigation/types';
-import { saveAuthToken } from "../../utils/authStorage";;
+import { useSendOtp, useVerifyOtp } from '../../hooks/auth/useAuth';
 
 const { height } = Dimensions.get('window');
 const OTP_LENGTH = 6;
@@ -23,6 +23,9 @@ export default function OTPScreen() {
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(20)).current;
+
+  const { mutateAsync: sendOtp, isPending: isSending } = useSendOtp();
+  const { mutateAsync: verifyOtp, isPending: isVerifying } = useVerifyOtp();
 
   useEffect(() => {
     Animated.parallel([
@@ -52,19 +55,45 @@ export default function OTPScreen() {
   };
 
   const handleContinue = async () => {
-    if (otp.join('').length === OTP_LENGTH) {
-      await saveAuthToken('voltgo_rider_token_demo');
-      navigation.navigate('CreateProfileStep1');
+    const code = otp.join('');
+    if (code.length < OTP_LENGTH) return;
+
+    try {
+      const result = await verifyOtp({ phone, otp: code });
+      const payload = result.data?.data;
+
+      if (payload?.requires_registration) {
+        // New rider — send to KYC profile creation flow
+        navigation.navigate('CreateProfileStep1');
+      } else if (payload?.access_token) {
+        // Returning rider — go straight to main app
+        navigation.reset({ index: 0, routes: [{ name: 'MainApp' }] });
+      } else {
+        // Fallback (e.g. backend returns 200 with no tokens for new riders)
+        navigation.navigate('CreateProfileStep1');
+      }
+    } catch (err: any) {
+      const message = err?.response?.data?.message ?? 'Invalid OTP. Please try again.';
+      Alert.alert('Verification Failed', message);
+      setOtp(Array(OTP_LENGTH).fill(''));
+      inputRefs.current[0]?.focus();
     }
   };
 
-  const handleResend = () => {
-    if (!canResend) return;
-    setOtp(Array(OTP_LENGTH).fill(''));
-    setCountdown(30);
-    setCanResend(false);
-    inputRefs.current[0]?.focus();
+  const handleResend = async () => {
+    if (!canResend || isSending) return;
+    try {
+      await sendOtp(phone);
+      setOtp(Array(OTP_LENGTH).fill(''));
+      setCountdown(30);
+      setCanResend(false);
+      inputRefs.current[0]?.focus();
+    } catch (err: any) {
+      Alert.alert('Error', 'Could not resend OTP. Please try again.');
+    }
   };
+
+  const isLoading = isSending || isVerifying;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -83,7 +112,7 @@ export default function OTPScreen() {
           {Array.from({ length: OTP_LENGTH }).map((_, i) => (
             <TextInput
               key={i}
-              ref={ref => {inputRefs.current[i] = ref}}
+              ref={ref => { inputRefs.current[i] = ref; }}
               style={[styles.otpBox, otp[i] ? styles.otpBoxFilled : null]}
               value={otp[i]}
               onChangeText={text => handleChange(text, i)}
@@ -92,12 +121,13 @@ export default function OTPScreen() {
               maxLength={1}
               textAlign="center"
               selectTextOnFocus
+              editable={!isLoading}
             />
           ))}
         </View>
-        <TouchableOpacity onPress={handleResend} disabled={!canResend}>
-          <Text style={[styles.resend, canResend && styles.resendActive]}>
-            {canResend ? 'Resend code' : `Resend in ${countdown}`}
+        <TouchableOpacity onPress={handleResend} disabled={!canResend || isSending}>
+          <Text style={[styles.resend, canResend && !isSending && styles.resendActive]}>
+            {isSending ? 'Sending...' : canResend ? 'Resend code' : `Resend in ${countdown}`}
           </Text>
         </TouchableOpacity>
         <View style={styles.divider} />
@@ -105,7 +135,11 @@ export default function OTPScreen() {
           <Text style={styles.differentMethod}>Try a different method</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
-        <NavyButton label="Continue" onPress={handleContinue} disabled={otp.join('').length < OTP_LENGTH} />
+        <NavyButton
+          label={isVerifying ? 'Verifying...' : 'Continue'}
+          onPress={handleContinue}
+          disabled={otp.join('').length < OTP_LENGTH || isLoading}
+        />
       </Animated.View>
     </SafeAreaView>
   );

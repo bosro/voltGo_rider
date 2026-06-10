@@ -1,4 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+/**
+ * DeliveryRequestScreen.tsx — Real API integration
+ *
+ * - Accept  → POST /rider/orders/{id}/accept  then navigate to EnRoutePickup
+ * - Decline → POST /rider/orders/{id}/decline then back to MainTabs
+ * - Countdown auto-dismiss unchanged (28 s)
+ */
+
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,24 +15,31 @@ import {
   StatusBar,
   Platform,
   Animated,
-  Image,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-// import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import StandaloneTabBar from "../../components/navigation/BottomTabBar";
-import { Colors, Typography, Radius, Shadow, lightMapStyle } from "../../theme";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors, Typography, Radius, Shadow } from "../../theme";
 import { MainStackParamList } from "../../navigation/types";
+import { useRoutePolyline } from "../../utils/useRoutePolyline";
+import CUSTOM_MAP_STYLE from "../../utils/mapStyle";
+import { useAcceptOrder, useDeclineOrder } from "../../hooks/rider/useOrders";
 
 import PowerCircleIcon from "../../../assets/icons/power-circle.svg";
 import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 import CloseXIcon from "../../../assets/icons/close-x.svg";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 type RouteParams = RouteProp<MainStackParamList, "DeliveryRequest">;
+
+const DEFAULT_PICKUP = { latitude: 5.5968, longitude: -0.1869 };
+const DEFAULT_DROPOFF = { latitude: 5.6502, longitude: -0.187 };
 
 export default function DeliveryRequestScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteParams>();
+  const mapRef = useRef<MapView>(null);
+
   const {
     orderId,
     customerName,
@@ -34,11 +49,48 @@ export default function DeliveryRequestScreen() {
     itemType,
     price,
     pickupEta,
-  } = route.params;
+    pickupCoords,
+    dropoffCoords,
+  } = route.params as any;
+
+  const pickupCoord = pickupCoords ?? DEFAULT_PICKUP;
+  const dropoffCoord = dropoffCoords ?? DEFAULT_DROPOFF;
 
   const [countdown, setCountdown] = useState(28);
   const slideUp = useRef(new Animated.Value(60)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
+
+  const { mutateAsync: acceptOrder, isPending: isAccepting } = useAcceptOrder();
+  const { mutateAsync: declineOrder, isPending: isDeclining } =
+    useDeclineOrder();
+
+  const { coords: routeCoords, etaMinutes } = useRoutePolyline({
+    origin: pickupCoord,
+    destination: dropoffCoord,
+    mode: "TWO_WHEELER",
+  });
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const points =
+      routeCoords.length > 0 ? routeCoords : [pickupCoord, dropoffCoord];
+    mapRef.current.fitToCoordinates(points, {
+      edgePadding: { top: 80, right: 60, bottom: 340, left: 60 },
+      animated: true,
+    });
+  }, [routeCoords]);
+
+  const initialRegion = useMemo(
+    () => ({
+      latitude: (pickupCoord.latitude + dropoffCoord.latitude) / 2,
+      longitude: (pickupCoord.longitude + dropoffCoord.longitude) / 2,
+      latitudeDelta:
+        Math.abs(pickupCoord.latitude - dropoffCoord.latitude) * 4 + 0.02,
+      longitudeDelta:
+        Math.abs(pickupCoord.longitude - dropoffCoord.longitude) * 4 + 0.02,
+    }),
+    [],
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -56,17 +108,39 @@ export default function DeliveryRequestScreen() {
     ]).start();
 
     const interval = setInterval(() => {
-  setCountdown((prev) => Math.max(prev - 1, 0));
-}, 1000);
+      setCountdown((prev) => Math.max(prev - 1, 0));
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-
+  // Auto-decline when countdown hits 0
   useEffect(() => {
-  if (countdown === 0) {
-    navigation.replace("MainTabs");
-  }
-}, [countdown, navigation]);
+    if (countdown === 0) {
+      declineOrder(orderId)
+        .catch(() => {})
+        .finally(() => navigation.replace("MainTabs"));
+    }
+  }, [countdown]);
+
+  const handleAccept = async () => {
+    try {
+      await acceptOrder(orderId);
+      navigation.replace("EnRoutePickup", route.params);
+    } catch {
+      navigation.replace("MainTabs");
+    }
+  };
+
+  const handleDecline = async () => {
+    try {
+      await declineOrder(orderId);
+    } finally {
+      navigation.replace("MainTabs");
+    }
+  };
+
+  const displayEta = etaMinutes ?? pickupEta;
+  const isBusy = isAccepting || isDeclining;
 
   return (
     <View style={styles.container}>
@@ -76,53 +150,61 @@ export default function DeliveryRequestScreen() {
         backgroundColor="transparent"
       />
 
-      {/* ── Static map image (swap MapView back when ready) ── */}
-      <Image
-        source={require("../../../assets/images/map-bg.png")}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-
-      {/* ── MapView (commented out for stakeholder demo) ──────────────────
       <MapView
+        ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
-        region={{
-          latitude: (5.5968 + 5.6502) / 2,
-          longitude: (-0.1869 + -0.187) / 2,
-          latitudeDelta: 0.08,
-          longitudeDelta: 0.08,
-        }}
+        initialRegion={initialRegion}
+        customMapStyle={CUSTOM_MAP_STYLE}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
-        customMapStyle={lightMapStyle}
+        pitchEnabled={false}
+        showsUserLocation={false}
+        showsMyLocationButton={false}
+        showsCompass={false}
+        toolbarEnabled={false}
       >
-        <Polyline
-          coordinates={[
-            { latitude: 5.5968, longitude: -0.1869 },
-            { latitude: 5.6502, longitude: -0.187 },
-          ]}
-          strokeColor={Colors.navy}
-          strokeWidth={4}
-        />
-        <Marker coordinate={{ latitude: 5.5968, longitude: -0.1869 }} anchor={{ x: 0.5, y: 0.5 }}>
-          <View style={styles.pickupDotOuter}><View style={styles.pickupDot} /></View>
+        {routeCoords.length > 0 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor={Colors.navy}
+            strokeWidth={4}
+          />
+        )}
+        <Marker
+          coordinate={pickupCoord}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+        >
+          <View style={styles.pickupDotOuter}>
+            <View style={styles.pickupDot} />
+          </View>
         </Marker>
-        <Marker coordinate={{ latitude: 5.6502, longitude: -0.187 }} anchor={{ x: 0.5, y: 1 }}>
+        <Marker
+          coordinate={dropoffCoord}
+          anchor={{ x: 0.5, y: 1 }}
+          tracksViewChanges={false}
+        >
           <View style={styles.dropoffPin}>
             <View style={styles.dropoffCircle} />
             <View style={styles.dropoffTail} />
           </View>
         </Marker>
         <Marker
-          coordinate={{ latitude: (5.5968 + 5.6502) / 2 + 0.005, longitude: (-0.1869 + -0.187) / 2 }}
+          coordinate={{
+            latitude:
+              (pickupCoord.latitude + dropoffCoord.latitude) / 2 + 0.005,
+            longitude: (pickupCoord.longitude + dropoffCoord.longitude) / 2,
+          }}
           anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
         >
-          <View style={styles.etaBadge}><Text style={styles.etaText}>15 min</Text></View>
+          <View style={styles.etaBadge}>
+            <Text style={styles.etaText}>{displayEta} min</Text>
+          </View>
         </Marker>
       </MapView>
-      ───────────────────────────────────────────────────────────────────── */}
 
       <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
         <View style={styles.pill}>
@@ -148,8 +230,9 @@ export default function DeliveryRequestScreen() {
           <Text style={styles.countdown}>{countdown}s</Text>
           <TouchableOpacity
             style={styles.dismissBtn}
-            onPress={() => navigation.replace("MainTabs")}
+            onPress={handleDecline}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            disabled={isBusy}
           >
             <CloseXIcon width={14} height={14} />
           </TouchableOpacity>
@@ -163,7 +246,7 @@ export default function DeliveryRequestScreen() {
               <Text style={styles.routeEmoji}>📦</Text>
               <View style={styles.routeTextWrap}>
                 <Text style={styles.routeLabel}>
-                  Pick - up ({pickupEta} min away)
+                  Pick - up ({displayEta} min away)
                 </Text>
                 <Text style={styles.routeValue}>{pickupAddress}</Text>
                 <Text style={styles.routeValue}>{itemType}</Text>
@@ -188,24 +271,30 @@ export default function DeliveryRequestScreen() {
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.acceptBtn}
-            onPress={() => navigation.replace("EnRoutePickup", route.params)}
+            onPress={handleAccept}
             activeOpacity={0.88}
+            disabled={isBusy}
           >
-            <Text style={styles.acceptText}>Accept</Text>
+            {isAccepting ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <Text style={styles.acceptText}>Accept</Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.declineBtn}
-            onPress={() => navigation.replace("MainTabs")}
+            onPress={handleDecline}
             activeOpacity={0.88}
+            disabled={isBusy}
           >
-            <Text style={styles.declineText}>Decline</Text>
+            {isDeclining ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <Text style={styles.declineText}>Decline</Text>
+            )}
           </TouchableOpacity>
         </View>
       </Animated.View>
-
-      {/* <View style={styles.tabWrap}>
-        <StandaloneTabBar activeTab="HomeMap" />
-      </View> */}
     </View>
   );
 }
@@ -365,6 +454,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     paddingVertical: 15,
     alignItems: "center",
+    justifyContent: "center",
   },
   acceptText: {
     fontFamily: "Poppins-SemiBold",
@@ -377,11 +467,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     paddingVertical: 15,
     alignItems: "center",
+    justifyContent: "center",
   },
   declineText: {
     fontFamily: "Poppins-SemiBold",
     fontSize: Typography.base,
     color: Colors.white,
   },
-  tabWrap: { position: "absolute", bottom: 0, left: 0, right: 0 },
 });

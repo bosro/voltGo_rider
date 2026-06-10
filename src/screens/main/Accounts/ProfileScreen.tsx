@@ -1,22 +1,20 @@
 /**
- * ProfileScreen.tsx
- * Reached from: AccountScreen → "Profile" menu row
- *
- * Layout:
- *  - Back header + "Profile" title
- *  - Circular avatar with camera edit button overlay
- *  - Editable fields: Full Name, Phone (read-only), Email
- *  - "Save changes" navy button
- *
- * SVGs needed: back_arrow.svg, camera_edit.svg, user_profile.svg, email_envelope.svg
+ * ProfileScreen.tsx — Real API integration
+ * Reads from Zustand authStore and saves via PATCH /rider/me (when backend adds it)
+ * For now wires to GET /rider/me to stay fresh and update local state.
  */
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
+  StatusBar, ScrollView, Image, Alert, ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { NavyButton, InputField, FieldLabel } from '../../../components/common';
-import { Colors, Typography, Radius, Shadow } from '../../../theme';
+import { Colors, Typography, Radius } from '../../../theme';
+import { useAuthStore } from '../../../store/authStore';
+import { useRiderProfile } from '../../../hooks/rider/useRider';
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const cameraEditSvg = `<svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1H10L11.5 3H14C14.8 3 15.5 3.7 15.5 4.5V12C15.5 12.8 14.8 13.5 14 13.5H2C1.2 13.5 0.5 12.8 0.5 12V4.5C0.5 3.7 1.2 3 2 3H4.5L6 1Z" stroke="white" stroke-width="1.3" fill="none"/><circle cx="8" cy="8" r="2.5" stroke="white" stroke-width="1.3" fill="none"/></svg>`;
@@ -26,29 +24,57 @@ const phoneSvg = `<svg width="18" height="20" viewBox="0 0 18 20" fill="none" xm
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
-  const [name, setName] = useState('John Cena');
-  const [email, setEmail] = useState('johncena1000@gmail.com');
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const { rider, updateRider } = useAuthStore();
+  const { isLoading } = useRiderProfile();
+
+  const [name,      setName]      = useState(rider?.name  ?? '');
+  const [email,     setEmail]     = useState(rider?.email ?? '');
+  const [avatarUri, setAvatarUri] = useState<string | null>(rider?.avatar_url ?? null);
+
+  // Sync form if Zustand updates (e.g. background refresh)
+  useEffect(() => {
+    if (rider) {
+      setName(rider.name ?? '');
+      setEmail(rider.email ?? '');
+      setAvatarUri(rider.avatar_url ?? null);
+    }
+  }, [rider?.id]);
 
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo access to change your profile photo.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.85 });
-    if (!result.canceled && result.assets?.[0]?.uri) setAvatarUri(result.assets[0].uri);
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo access to change your profile photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [1, 1], quality: 0.85,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setAvatarUri(result.assets[0].uri);
+    }
   };
 
   const handleSave = () => {
-    // TODO: PATCH /api/rider/profile  { name, email }
+    // Optimistic local update — when backend exposes PATCH /rider/me we'll call it here
+    updateRider({ name, email: email || undefined });
     Alert.alert('Saved', 'Profile updated successfully.');
     navigation.goBack();
   };
 
+  if (isLoading && !rider) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={Colors.navy} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top:10,bottom:10,left:10,right:10 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <SvgXml xml={backArrowSvg} width={10} height={18} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
@@ -56,7 +82,6 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Avatar */}
         <View style={styles.avatarWrap}>
           <View style={styles.avatarCircle}>
             {avatarUri
@@ -73,7 +98,7 @@ export default function ProfileScreen() {
         <InputField iconSvg={userProfileSvg} placeholder="Enter full name" value={name} onChangeText={setName} autoCapitalize="words" />
 
         <FieldLabel label="Phone Number" />
-        <InputField iconSvg={phoneSvg} placeholder="+233 ..." value="+233 575 540 404" editable={false} style={styles.readOnly} />
+        <InputField iconSvg={phoneSvg} placeholder="+233 ..." value={rider?.phone ?? ''} editable={false} style={styles.readOnly} />
 
         <FieldLabel label="Email" />
         <InputField iconSvg={emailSvg} placeholder="Enter email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />

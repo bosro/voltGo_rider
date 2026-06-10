@@ -40,7 +40,8 @@
 
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/android-logo.png",
+        "backgroundImage": "./assets/images/android-bg.png",
         "backgroundColor": "#0B3C5D" // ← changed
       },
       "package": "com.voltgo.rider",
