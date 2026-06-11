@@ -1,19 +1,21 @@
 /**
  * useSocket.ts
  * ─────────────────────────────────────────────────────────────────
- * React hook that:
- *  1. Connects the socket when the rider is authenticated
- *  2. Disconnects cleanly on logout or unmount
- *  3. Wires every server event into the correct Zustand store action
- *     so all screens react automatically — no prop passing needed
+ * Mounts ONCE inside MainNavigator (or App root) after auth.
  *
- * Mount this ONCE inside MainNavigator (or App) after auth.
+ * Responsibilities:
+ *  - Connect / disconnect as auth state changes
+ *  - Wire server events → riderStore (no direct navigation here)
+ *  - Navigation in response to socket events is handled by
+ *    HomeMapScreen (watches pendingOffer) and ActiveDeliveryScreen
+ *    (watches activeOrder.status). Keeping navigation out of this
+ *    hook means it never competes with React Navigation's own state.
  *
  * ── Events handled ───────────────────────────────────────────────
- *  order:assigned     → set pendingOffer in riderStore (triggers DeliveryRequest nav)
- *  order:cancelled    → clear pendingOffer/activeOrder if IDs match
- *  order:status_changed → update activeOrder status in riderStore
- *  error              → log (extend with toast if desired)
+ *  order:assigned       → setPendingOffer  (HomeMapScreen reacts)
+ *  order:cancelled      → clear pending/active offer
+ *  order:status_changed → update activeOrder.status in store
+ *  error                → console.warn
  */
 
 import { useEffect, useRef } from 'react';
@@ -24,9 +26,14 @@ import { Order } from './api';
 
 export function useSocket() {
   const { isAuthenticated, rider } = useAuthStore();
-  const { setActiveOrder, setPendingOffer, activeOrder } = useRiderStore();
+  const {
+    setActiveOrder,
+    setPendingOffer,
+    clearDelivery,
+    activeOrder,
+  } = useRiderStore();
 
-  // Keep a stable ref to activeOrder for use inside event handlers
+  // Stable ref so event handlers always see the latest activeOrder
   const activeOrderRef = useRef(activeOrder);
   useEffect(() => { activeOrderRef.current = activeOrder; }, [activeOrder]);
 
@@ -36,17 +43,14 @@ export function useSocket() {
       return;
     }
 
-    // Connect + register rider room
     socketService.connect(rider.id);
 
     // ── order:assigned ─────────────────────────────────────────────
-    // Dispatch sent an order. Map to the OrderOffer shape used by the store
-    // and set it as a pendingOffer — HomeMapScreen navigates on this.
     const onOrderAssigned = (payload: SocketOrderAssigned) => {
       const offer: Order = {
         id:              payload.order_id,
         status:          'assigned',
-        customer_name:   '',          // not in socket payload — fill from REST if needed
+        customer_name:   '',
         customer_phone:  '',
         pickup_address:  payload.pickup_address,
         dropoff_address: payload.dropoff_address,
@@ -60,27 +64,33 @@ export function useSocket() {
           latitude:  payload.dropoff_lat,
           longitude: payload.dropoff_lng,
         },
-        created_at:  payload.timestamp,
-        updated_at:  payload.timestamp,
+        created_at: payload.timestamp,
+        updated_at: payload.timestamp,
       };
       setPendingOffer(offer);
+      // HomeMapScreen watches pendingOffer and navigates to DeliveryRequest
     };
 
     // ── order:cancelled ────────────────────────────────────────────
+    // Customer cancelled BEFORE the rider accepted.
+    // If rider already accepted and is mid-delivery, the same event
+    // may fire — clearDelivery handles both cases.
     const onOrderCancelled = (payload: { order_id: string }) => {
-      // Clear pending offer if it matches
       setPendingOffer(null);
-
-      // Clear active order if it matches (customer cancelled after accept)
       if (activeOrderRef.current?.id === payload.order_id) {
-        setActiveOrder(null);
+        clearDelivery();
+        // ActiveDeliveryScreen watches activeOrder; when it becomes null
+        // the screen navigates back to MainTabs automatically.
       }
     };
 
     // ── order:status_changed ───────────────────────────────────────
+    // Note: spec status strings are rider_arriving | collected |
+    // in_transit | delivered — NOT "arrived". Keep aligned with api.ts
+    // OrderStatus union which now includes all these values.
     const onStatusChanged = (payload: {
       order_id: string;
-      status: string;
+      status:   string;
       proof_of_delivery_url?: string;
     }) => {
       const current = activeOrderRef.current;
@@ -90,6 +100,8 @@ export function useSocket() {
         ...current,
         status: payload.status as Order['status'],
       });
+      // ActiveDeliveryScreen's useEffect on activeOrder.status drives
+      // the CTA and card content — no extra navigation needed here.
     };
 
     // ── error ──────────────────────────────────────────────────────
@@ -97,18 +109,18 @@ export function useSocket() {
       console.warn('[Socket] server error:', payload.message, payload.code);
     };
 
-    socketService.on('order:assigned',      onOrderAssigned);
-    socketService.on('order:cancelled',     onOrderCancelled);
+    socketService.on('order:assigned',       onOrderAssigned);
+    socketService.on('order:cancelled',      onOrderCancelled);
     socketService.on('order:status_changed', onStatusChanged);
-    socketService.on('error',               onError);
+    socketService.on('error',                onError);
 
     return () => {
       socketService.off('order:assigned',       onOrderAssigned);
       socketService.off('order:cancelled',      onOrderCancelled);
       socketService.off('order:status_changed', onStatusChanged);
       socketService.off('error',                onError);
-      // Don't disconnect here — the socket should persist across
-      // tab navigation. Disconnect only on logout (handled by auth effect).
+      // Don't disconnect on cleanup — socket persists across tab navigation.
+      // Disconnect only happens when isAuthenticated → false (above branch).
     };
   }, [isAuthenticated, rider?.id]);
 }

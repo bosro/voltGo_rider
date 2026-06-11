@@ -56,3 +56,9 @@ export const useRiderStore = create<RiderState>((set) => ({
   /** Called when a delivery is completed or cancelled — resets order state. */
   clearDelivery: () => set({ activeOrder: null, pendingOffer: null }),
 }));
+
+
+
+
+
+

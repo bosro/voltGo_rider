@@ -6,27 +6,40 @@ import { SvgProps } from "react-native-svg";
 import { MainStackParamList, MainTabParamList } from "./types";
 import { Colors } from "../theme";
 
+// ── Hooks (mounted once for the entire authenticated session) ──────
+import { useSocket } from "../lib/useSocket";
+
+// ── Tab screens ────────────────────────────────────────────────────
 import HomeMapScreen from "../screens/main/HomeMapScreen";
 import WalletScreen from "../screens/main/WalletScreen";
+import ActivitiesScreen from "../screens/main/activities/ActivitiesScreen";
+import AccountScreen from "../screens/main/Accounts/AccountScreen";
+
+// ── Delivery flow screens ──────────────────────────────────────────
 import DeliveryRequestScreen from "../screens/main/DeliveryRequestScreen";
-import EnRoutePickupScreen from "../screens/main/EnRoutePickupScreen";
-import PackageCollectedScreen from "../screens/main/PackageCollectedScreen";
+import ActiveDeliveryScreen from "../screens/main/ActiveDeliveryScreen"; // replaces EnRoutePickup + PackageCollected
 import CameraCaptureScreen from "../screens/main/CameraCaptureScreen";
 import SubmitPhotoScreen from "../screens/main/SubmitPhotoScreen";
-import PaymentMethodsScreen from "@/screens/main/Accounts/PaymentMethodsScreen";
-import NotificationsScreen from "@/screens/main/Accounts/NotificationsScreen";
-import SecurityScreen from "@/screens/main/Accounts/SecurityScreen";
-import SettingsScreen from "@/screens/main/Accounts/SettingsScreen";
-import SupportScreen from "@/screens/main/Accounts/SupportScreen";
 import DeliveryCompletedScreen from "@/screens/main/delivery/DeliveryCompletedScreen";
 import RiderOfflineScreen from "@/screens/main/delivery/RiderOfflineScreen";
-import TransactionHistoryScreen from "@/screens/main/wallet/TransactionHistoryScreen";
-import WithdrawScreen from "@/screens/main/wallet/WithdrawScreen";
-import ActivitiesScreen from "@/screens/main/activities/ActivitiesScreen";
-import AccountScreen from "@/screens/main/Accounts/AccountScreen";
-import ActivityDetailScreen from "@/screens/main/activities/ActivityDetailScreen";
-import ProfileScreen from "@/screens/main/Accounts/ProfileScreen";
 
+// ── Account sub-screens ────────────────────────────────────────────
+import ProfileScreen from "../screens/main/Accounts/ProfileScreen";
+import PaymentMethodsScreen from "@/screens/main/Accounts/PaymentMethodsScreen";
+import AddPaymentMethodScreen from "@/screens/main/Accounts/AddPaymentMethodScreen";
+import NotificationsScreen from "@/screens/main/Accounts/NotificationsScreen";
+import SecurityScreen from "@/screens/main/Accounts/SecurityScreen";
+import SupportScreen from "@/screens/main/Accounts/SupportScreen";
+import SettingsScreen from "@/screens/main/Accounts/SettingsScreen";
+
+// ── Wallet sub-screens ─────────────────────────────────────────────
+import WithdrawScreen from "@/screens/main/wallet/WithdrawScreen";
+import TransactionHistoryScreen from "@/screens/main/wallet/TransactionHistoryScreen";
+
+// ── Activities sub-screens ─────────────────────────────────────────
+import ActivityDetailScreen from "../screens/main/activities/ActivityDetailScreen";
+
+// ── Tab icons ──────────────────────────────────────────────────────
 import HomeDefault from "../../assets/icons/tab-home-default.svg";
 import HomeActive from "../../assets/icons/tab-home-active.svg";
 import WalletDefault from "../../assets/icons/tab-wallet-default.svg";
@@ -35,6 +48,7 @@ import ActivitiesDefault from "../../assets/icons/tab-activities-default.svg";
 import ActivitiesActive from "../../assets/icons/tab-activities-active.svg";
 import AccountDefault from "../../assets/icons/tab-account-default.svg";
 import AccountActive from "../../assets/icons/tab-account-active.svg";
+import { useLocationTracking } from "@/hooks/rider/useLocationTracking";
 
 // ── Tab config ─────────────────────────────────────────────────────
 const TABS: {
@@ -42,14 +56,10 @@ const TABS: {
   IconDefault: React.FC<SvgProps>;
   IconActive: React.FC<SvgProps>;
 }[] = [
-  { name: "HomeMap", IconDefault: HomeDefault, IconActive: HomeActive },
-  { name: "Wallet", IconDefault: WalletDefault, IconActive: WalletActive },
-  {
-    name: "Activities",
-    IconDefault: ActivitiesDefault,
-    IconActive: ActivitiesActive,
-  },
-  { name: "Account", IconDefault: AccountDefault, IconActive: AccountActive },
+  { name: "HomeMap",     IconDefault: HomeDefault,       IconActive: HomeActive },
+  { name: "Wallet",      IconDefault: WalletDefault,     IconActive: WalletActive },
+  { name: "Activities",  IconDefault: ActivitiesDefault, IconActive: ActivitiesActive },
+  { name: "Account",     IconDefault: AccountDefault,    IconActive: AccountActive },
 ];
 
 // ── BottomTabBar ───────────────────────────────────────────────────
@@ -60,7 +70,6 @@ export function BottomTabBar({ state, navigation }: any) {
         {TABS.map((tab, index) => {
           const isActive = state.index === index;
           const Icon = isActive ? tab.IconActive : tab.IconDefault;
-
           return (
             <TouchableOpacity
               key={tab.name}
@@ -108,10 +117,10 @@ function MainTabs() {
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <BottomTabBar {...props} />}
     >
-      <Tab.Screen name="HomeMap" component={HomeMapScreen} />
-      <Tab.Screen name="Wallet" component={WalletScreen} />
-      <Tab.Screen name="Activities" component={ActivitiesScreen} />
-      <Tab.Screen name="Account" component={AccountScreen} />
+      <Tab.Screen name="HomeMap"     component={HomeMapScreen} />
+      <Tab.Screen name="Wallet"      component={WalletScreen} />
+      <Tab.Screen name="Activities"  component={ActivitiesScreen} />
+      <Tab.Screen name="Account"     component={AccountScreen} />
     </Tab.Navigator>
   );
 }
@@ -120,26 +129,47 @@ function MainTabs() {
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
 export default function MainNavigator() {
+  // Both hooks are mounted ONCE here and run for the entire authenticated
+  // session regardless of which screen is visible.
+  //
+  // useSocket         → connects Socket.IO, wires order:assigned /
+  //                     order:cancelled / order:status_changed to riderStore
+  // useLocationTracking → expo-location watch → riderStore.currentCoords
+  //                       + throttled PUT /rider/location every 8 s
+  useSocket();
+  useLocationTracking();
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {/* ── Tabs (home) ─────────────────────────────────────── */}
       <Stack.Screen name="MainTabs" component={MainTabs} />
 
-      {/* Delivery flow */}
+      {/* ── Delivery flow ───────────────────────────────────── */}
+      {/*
+       * DeliveryRequest — slides up as a modal when an offer arrives.
+       * gestureEnabled:false so the rider can't accidentally swipe it away.
+       */}
       <Stack.Screen
         name="DeliveryRequest"
         component={DeliveryRequestScreen}
         options={{ animation: "slide_from_bottom", gestureEnabled: false }}
       />
+
+      {/*
+       * ActiveDelivery — single screen that replaces both EnRoutePickup
+       * and PackageCollected. The map, polyline, and card stay mounted;
+       * only the CTA changes as activeOrder.status progresses:
+       *   accepted / rider_arriving / arrived → "I have arrived"
+       *   collected / in_transit              → "Package collected" → camera
+       * Status is driven by socket (order:status_changed) so the CTA
+       * flips automatically without any navigation.
+       */}
       <Stack.Screen
-        name="EnRoutePickup"
-        component={EnRoutePickupScreen}
+        name="ActiveDelivery"
+        component={ActiveDeliveryScreen}
         options={{ animation: "fade", gestureEnabled: false }}
       />
-      <Stack.Screen
-        name="PackageCollected"
-        component={PackageCollectedScreen}
-        options={{ animation: "fade", gestureEnabled: false }}
-      />
+
       <Stack.Screen
         name="CameraCapture"
         component={CameraCaptureScreen}
@@ -161,7 +191,7 @@ export default function MainNavigator() {
         options={{ animation: "slide_from_bottom", gestureEnabled: true }}
       />
 
-      {/* Account sub-screens */}
+      {/* ── Account sub-screens ──────────────────────────────── */}
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
@@ -170,6 +200,11 @@ export default function MainNavigator() {
       <Stack.Screen
         name="PaymentMethods"
         component={PaymentMethodsScreen}
+        options={{ animation: "slide_from_right", gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="AddPaymentMethod"
+        component={AddPaymentMethodScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
       <Stack.Screen
@@ -193,7 +228,7 @@ export default function MainNavigator() {
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
 
-      {/* Wallet sub-screens */}
+      {/* ── Wallet sub-screens ───────────────────────────────── */}
       <Stack.Screen
         name="Withdraw"
         component={WithdrawScreen}
@@ -205,7 +240,7 @@ export default function MainNavigator() {
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
 
-      {/* Activities sub-screens */}
+      {/* ── Activities sub-screens ───────────────────────────── */}
       <Stack.Screen
         name="ActivityDetail"
         component={ActivityDetailScreen}
@@ -214,5 +249,3 @@ export default function MainNavigator() {
     </Stack.Navigator>
   );
 }
-
-

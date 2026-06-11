@@ -1,69 +1,213 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, ScrollView, Animated, Image, Alert,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NavyButton } from '../../components/common';
-import { Colors, Typography, Radius } from '../../theme';
-import { useSendOtp } from '../../hooks/auth/useAuth';
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  StatusBar,
+  ScrollView,
+  Animated,
+  Image,
+  Alert,
+  Platform,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NavyButton } from "../../components/common";
+import { Colors, Typography, Radius } from "../../theme";
 
-import GhanaFlag from '../../../assets/icons/flag-ghana.svg';
-import ChevronDown from '../../../assets/icons/chevron-down-sm.svg';
-import GoogleIcon from '../../../assets/icons/google.svg';
-import AppleIcon from '../../../assets/icons/apple.svg';
-import BiometricIcon from '../../../assets/icons/fingerprint.svg';
+import GhanaFlag from "../../../assets/icons/flag-ghana.svg";
+import ChevronDown from "../../../assets/icons/chevron-down-sm.svg";
+import GoogleIcon from "../../../assets/icons/google.svg";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  useSendOtp,
+  useRegisterRider,
+  useLoginRider,
+} from "../../hooks/auth/useAuth";
 
 export default function PhoneEntryScreen() {
   const navigation = useNavigation<any>();
-  const [phone, setPhone] = useState('');
+  const [isNewRider, setIsNewRider] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(20)).current;
 
-  const { mutateAsync: sendOtp, isPending } = useSendOtp();
+  const { mutateAsync: sendOtp, isPending: isSendingOtp } = useSendOtp();
+  const { mutateAsync: register, isPending: isRegistering } =
+    useRegisterRider();
+  const { mutateAsync: loginRider, isPending: isLoggingIn } = useLoginRider();
+
+  const isPending = isSendingOtp || isRegistering || isLoggingIn;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 380, useNativeDriver: true }),
-      Animated.spring(slideUp, { toValue: 0, tension: 58, friction: 10, useNativeDriver: true }),
+      Animated.timing(fadeIn, {
+        toValue: 1,
+        duration: 380,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUp, {
+        toValue: 0,
+        tension: 58,
+        friction: 10,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
+  // Reset fields when switching tabs
+  const handleTabSwitch = (newRider: boolean) => {
+    setIsNewRider(newRider);
+    setPhone("");
+    setFullName("");
+    setPassword("");
+    setShowPassword(false);
+  };
+
   const handleContinue = async () => {
-    if (phone.trim().length < 9) return;
-    const fullPhone = `+233${phone.trim()}`;
-    try {
-      await sendOtp(fullPhone);
-      navigation.navigate('OTP', { phone: fullPhone });
-    } catch (err: any) {
-      const message = err?.response?.data?.message ?? 'Failed to send OTP. Please try again.';
-      Alert.alert('Error', message);
+    const trimmed = phone.trim();
+    if (trimmed.length !== 9) {
+      Alert.alert("Error", "Please enter a valid 9-digit phone number.");
+      return;
+    }
+
+    const fullPhone = `0${trimmed}`; // e.g. 0593706706
+
+    if (isNewRider) {
+      // ── Register flow ──────────────────────────────────────────────
+      if (!fullName.trim()) {
+        Alert.alert("Error", "Please enter your full name.");
+        return;
+      }
+      if (password.length < 6) {
+        Alert.alert("Error", "Password must be at least 6 characters.");
+        return;
+      }
+
+      try {
+        await register({
+          fullName: fullName.trim(),
+          phone: fullPhone,
+          password,
+        });
+        await sendOtp(fullPhone);
+        navigation.navigate("OTP", { phone: fullPhone, isNewRider: true });
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.message ??
+          "Something went wrong. Please try again.";
+        Alert.alert("Error", message);
+      }
+    } else {
+      // ── Sign In flow — direct login, no OTP ───────────────────────
+      if (!password) {
+        Alert.alert("Error", "Please enter your password.");
+        return;
+      }
+
+      try {
+        // useLoginRider's onSuccess handles storing tokens + rider profile
+        await loginRider({ phone: fullPhone, password });
+        // Navigate to MainApp — auth store is already updated by onSuccess
+        navigation.reset({ index: 0, routes: [{ name: "MainApp" }] });
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.message ??
+          "Incorrect phone or password. Please try again.";
+        Alert.alert("Sign In Failed", message);
+      }
     }
   };
 
   const socialOptions = [
-    { Icon: GoogleIcon,    w: 22, h: 22, label: 'Sign in with Google', onPress: () => {} },
-    { Icon: AppleIcon,     w: 20, h: 24, label: 'Sign in with Apple',  onPress: () => {} },
-    { Icon: BiometricIcon, w: 22, h: 22, label: 'Biometric Sign in',   onPress: () => navigation.navigate('BiometricSetup') },
+    {
+      Icon: GoogleIcon,
+      w: 22,
+      h: 22,
+      label: isNewRider ? "Sign up with Google" : "Sign in with Google",
+      onPress: () => {},
+    },
   ];
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.navy} />
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
         <View style={styles.hero}>
           <Image
-            source={require('../../../assets/images/onboarding2.png')}
+            source={require("../../../assets/images/onboarding2.png")}
             style={styles.heroImage}
             resizeMode="cover"
           />
         </View>
-        <Animated.View style={[styles.content, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}>
-          <Text style={styles.heading}>Enter your number</Text>
+
+        <Animated.View
+          style={[
+            styles.content,
+            { opacity: fadeIn, transform: [{ translateY: slideUp }] },
+          ]}
+        >
+          {/* Sign In / Register toggle */}
+          <View style={styles.toggleRow}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, !isNewRider && styles.toggleBtnActive]}
+              onPress={() => handleTabSwitch(false)}
+            >
+              <Text
+                style={[
+                  styles.toggleText,
+                  !isNewRider && styles.toggleTextActive,
+                ]}
+              >
+                Sign In
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, isNewRider && styles.toggleBtnActive]}
+              onPress={() => handleTabSwitch(true)}
+            >
+              <Text
+                style={[
+                  styles.toggleText,
+                  isNewRider && styles.toggleTextActive,
+                ]}
+              >
+                Register
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.heading}>
+            {isNewRider ? "Create your account" : "Welcome back"}
+          </Text>
           <Text style={styles.subtitle}>
-            We will send you a verification code on this{'\n'}number as SMS.
+            {isNewRider
+              ? "We will send you a verification code on this\nnumber as SMS."
+              : "Sign in with your phone number and password."}
           </Text>
 
+          {/* Full name — register only */}
+          {isNewRider && (
+            <TextInput
+              style={styles.textInput}
+              placeholder="Full name"
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+              placeholderTextColor={Colors.textPlaceholder}
+            />
+          )}
+
+          {/* Phone row */}
           <View style={styles.phoneRow}>
             <TouchableOpacity style={styles.countryPicker} activeOpacity={0.8}>
               <GhanaFlag width={24} height={24} />
@@ -81,6 +225,76 @@ export default function PhoneEntryScreen() {
             </View>
           </View>
 
+          {/* Password row — both sign in and register */}
+          <View style={styles.passwordRow}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              placeholderTextColor={Colors.textPlaceholder}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword((prev) => !prev)}
+              style={styles.eyeBtn}
+              activeOpacity={0.7}
+            >
+              {showPassword ? (
+                <Image
+                  source={require("../../../assets/icons/eye-closed.png")}
+                  style={{ width: 20, height: 20, tintColor: "#0B3C5D" }}
+                />
+              ) : (
+                <Image
+                  source={require("../../../assets/icons/eye-open.png")}
+                  style={{ width: 20, height: 20, tintColor: "#0B3C5D" }}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Password strength hints — register only */}
+          {isNewRider && password.length > 0 && (
+            <View style={{ marginTop: -8, marginBottom: 10 }}>
+              <Text
+                style={[styles.hint, password.length >= 8 && styles.hintOk]}
+              >
+                {password.length >= 8 ? "✓" : "✗"} At least 8 characters
+              </Text>
+              <Text
+                style={[styles.hint, /[A-Z]/.test(password) && styles.hintOk]}
+              >
+                {/[A-Z]/.test(password) ? "✓" : "✗"} One uppercase letter
+              </Text>
+              <Text
+                style={[styles.hint, /[0-9]/.test(password) && styles.hintOk]}
+              >
+                {/[0-9]/.test(password) ? "✓" : "✗"} One number
+              </Text>
+            </View>
+          )}
+
+          {/* Forgot password — sign in only */}
+          {!isNewRider && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("ForgotPassword")}
+              style={{ alignSelf: "flex-end", marginTop: -4, marginBottom: 12 }}
+            >
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={{ height: 10 }} />
+          <NavyButton
+            label={
+              isPending ? "Please wait..." : isNewRider ? "Register" : "Sign In"
+            }
+            onPress={handleContinue}
+            disabled={isPending || phone.trim().length !== 9 || !password}
+          />
+          <View style={{ height: 20 }} />
+
           <View style={styles.orRow}>
             <View style={styles.orLine} />
             <Text style={styles.orText}>Or</Text>
@@ -94,20 +308,22 @@ export default function PhoneEntryScreen() {
               onPress={item.onPress}
               activeOpacity={0.8}
             >
-              <item.Icon width={item.w} height={item.h} style={{ marginRight: 12 }} />
+              <item.Icon
+                width={item.w}
+                height={item.h}
+                style={{ marginRight: 12 }}
+              />
               <Text style={styles.socialLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
 
           <View style={{ height: 20 }} />
-          <NavyButton
-            label={isPending ? 'Sending...' : 'Continue'}
-            onPress={handleContinue}
-            disabled={isPending || phone.trim().length < 9}
-          />
           <Text style={styles.terms}>
-            By continuing, you agree to our{' '}
-            <Text style={styles.termsLink}>terms and{'\n'}conditions and privacy policies</Text>.
+            By continuing, you agree to our{" "}
+            <Text style={styles.termsLink}>
+              terms and{"\n"}conditions and privacy policies
+            </Text>
+            .
           </Text>
         </Animated.View>
       </ScrollView>
@@ -116,51 +332,163 @@ export default function PhoneEntryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
-  hero: {
-    marginHorizontal: 14, marginTop: 10, height: 220,
-    borderRadius: 22, overflow: 'hidden', backgroundColor: Colors.navy,
+  safe: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
-  heroImage: { width: '100%', height: '100%' },
+  hero: {
+    marginHorizontal: 14,
+    marginTop: 10,
+    height: 220,
+    borderRadius: 22,
+    overflow: "hidden",
+    backgroundColor: Colors.navy,
+  },
+  heroImage: { width: "100%", height: "100%" },
   content: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 30 },
   heading: {
-    fontFamily: 'HelveticaNeue-CondensedBold', fontSize: 24,
-    color: Colors.textPrimary, textAlign: 'center', marginBottom: 8,
+    fontFamily: "HelveticaNeue-CondensedBold",
+    fontSize: 24,
+    color: Colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 8,
   },
   subtitle: {
-    fontFamily: 'Poppins-Regular', fontSize: Typography.base,
-    color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 18,
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 18,
   },
   phoneRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.inputBg,
-    borderRadius: Radius.lg, paddingHorizontal: 14, paddingVertical: 13,
-    marginBottom: 18, gap: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.inputBg,
+    borderRadius: Radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 12,
+    gap: 10,
   },
   countryPicker: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingRight: 10, borderRightWidth: 1, borderRightColor: Colors.border, gap: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 10,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+    gap: 4,
   },
-  phoneInputWrap: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  phoneInputWrap: { flexDirection: "row", alignItems: "center", flex: 1 },
   countryCode: {
-    fontFamily: 'Poppins-Regular', fontSize: Typography.base,
-    color: Colors.textPrimary, marginRight: 6,
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textPrimary,
+    marginRight: 6,
   },
   phoneInput: {
-    flex: 1, fontFamily: 'Poppins-Regular',
-    fontSize: Typography.base, color: Colors.textPrimary, padding: 0,
+    flex: 1,
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textPrimary,
+    padding: 0,
   },
-  orRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 },
+  textInput: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.inputBg,
+    borderRadius: Radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 12,
+  },
+  passwordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.inputBg,
+    borderRadius: Radius.lg,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textPrimary,
+    paddingVertical: 13,
+  },
+  eyeBtn: { paddingLeft: 10 },
+  forgotText: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.sm,
+    color: Colors.navy,
+    textDecorationLine: "underline",
+  },
+  orRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 10,
+  },
   orLine: { flex: 1, height: 1, backgroundColor: Colors.divider },
-  orText: { fontFamily: 'Poppins-Regular', fontSize: Typography.base, color: Colors.textMuted },
+  orText: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textMuted,
+  },
   socialRow: {
-    flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.lg, paddingVertical: 15, paddingHorizontal: 20,
-    marginBottom: 12, backgroundColor: Colors.white,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    backgroundColor: Colors.white,
   },
-  socialLabel: { fontFamily: 'Poppins-Regular', fontSize: Typography.base, color: Colors.textPrimary },
+  socialLabel: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textPrimary,
+  },
   terms: {
-    fontFamily: 'Poppins-Regular', fontSize: Typography.sm,
-    color: Colors.textMuted, textAlign: 'center', lineHeight: 19, marginTop: 14,
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.sm,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 19,
+    marginTop: 14,
   },
-  termsLink: { color: Colors.textSecondary, textDecorationLine: 'underline' },
+  termsLink: { color: Colors.textSecondary, textDecorationLine: "underline" },
+  toggleRow: {
+    flexDirection: "row",
+    backgroundColor: Colors.inputBg,
+    borderRadius: Radius.lg,
+    padding: 4,
+    marginBottom: 20,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: Radius.lg,
+  },
+  toggleBtnActive: { backgroundColor: Colors.navy },
+  toggleText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
+    color: Colors.textMuted,
+  },
+  toggleTextActive: { color: Colors.white },
+  hint: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.sm,
+    color: "#E53935",
+    marginBottom: 2,
+  },
+  hintOk: { color: "#2E7D32" },
 });

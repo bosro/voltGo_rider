@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 14,
   },
-  backArrow: { width: 10, height: 18 },
+  backArrow: { width: 20, height: 18 },
   headerTitle: {
     fontFamily: "HelveticaNeue-CondensedBold",
     fontSize: Typography.xl,

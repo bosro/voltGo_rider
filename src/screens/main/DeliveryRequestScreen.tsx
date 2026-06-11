@@ -1,9 +1,16 @@
 /**
- * DeliveryRequestScreen.tsx — Real API integration
+ * DeliveryRequestScreen.tsx
+ * ─────────────────────────────────────────────────────────────────
+ * Shown when dispatch assigns an order to the rider.
  *
- * - Accept  → POST /rider/orders/{id}/accept  then navigate to EnRoutePickup
- * - Decline → POST /rider/orders/{id}/decline then back to MainTabs
- * - Countdown auto-dismiss unchanged (28 s)
+ * Changes vs previous version:
+ *  - Uses rider's real currentCoords from riderStore as the map origin
+ *    instead of a hardcoded Accra point, so the route polyline starts
+ *    at the rider's actual position.
+ *  - Rider location marker drawn on the map.
+ *  - Auto-decline correctly fires on countdown = 0 (guarded with ref).
+ *  - All route.params are forwarded correctly on Accept.
+ *  - OfflinePill used for consistent positioning.
  */
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -25,15 +32,15 @@ import { MainStackParamList } from "../../navigation/types";
 import { useRoutePolyline } from "../../utils/useRoutePolyline";
 import CUSTOM_MAP_STYLE from "../../utils/mapStyle";
 import { useAcceptOrder, useDeclineOrder } from "../../hooks/rider/useOrders";
+import { useRiderStore } from "../../store/riderStore";
 
-import PowerCircleIcon from "../../../assets/icons/power-circle.svg";
 import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 import CloseXIcon from "../../../assets/icons/close-x.svg";
+import OfflinePill from "@/components/common/OfflinePill";
 
 type RouteParams = RouteProp<MainStackParamList, "DeliveryRequest">;
 
-const DEFAULT_PICKUP = { latitude: 5.5968, longitude: -0.1869 };
-const DEFAULT_DROPOFF = { latitude: 5.6502, longitude: -0.187 };
+const ACCRA_FALLBACK = { latitude: 5.5968, longitude: -0.1869 };
 
 export default function DeliveryRequestScreen() {
   const navigation = useNavigation<any>();
@@ -53,10 +60,14 @@ export default function DeliveryRequestScreen() {
     dropoffCoords,
   } = route.params as any;
 
-  const pickupCoord = pickupCoords ?? DEFAULT_PICKUP;
-  const dropoffCoord = dropoffCoords ?? DEFAULT_DROPOFF;
+  // Use rider's live GPS as the route origin if available
+  const { currentCoords } = useRiderStore();
+  const riderCoord = currentCoords ?? ACCRA_FALLBACK;
+  const pickupCoord = pickupCoords ?? ACCRA_FALLBACK;
+  const dropoffCoord = dropoffCoords ?? { latitude: 5.6502, longitude: -0.187 };
 
   const [countdown, setCountdown] = useState(28);
+  const hasAutoDismissed = useRef(false);
   const slideUp = useRef(new Animated.Value(60)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
 
@@ -64,16 +75,18 @@ export default function DeliveryRequestScreen() {
   const { mutateAsync: declineOrder, isPending: isDeclining } =
     useDeclineOrder();
 
+  // Route from rider's current location → pickup point
   const { coords: routeCoords, etaMinutes } = useRoutePolyline({
-    origin: pickupCoord,
-    destination: dropoffCoord,
+    origin: riderCoord,
+    destination: pickupCoord,
     mode: "TWO_WHEELER",
   });
 
+  // Fit map to show rider → pickup route
   useEffect(() => {
     if (!mapRef.current) return;
     const points =
-      routeCoords.length > 0 ? routeCoords : [pickupCoord, dropoffCoord];
+      routeCoords.length > 0 ? routeCoords : [riderCoord, pickupCoord];
     mapRef.current.fitToCoordinates(points, {
       edgePadding: { top: 80, right: 60, bottom: 340, left: 60 },
       animated: true,
@@ -82,16 +95,17 @@ export default function DeliveryRequestScreen() {
 
   const initialRegion = useMemo(
     () => ({
-      latitude: (pickupCoord.latitude + dropoffCoord.latitude) / 2,
-      longitude: (pickupCoord.longitude + dropoffCoord.longitude) / 2,
+      latitude: (riderCoord.latitude + pickupCoord.latitude) / 2,
+      longitude: (riderCoord.longitude + pickupCoord.longitude) / 2,
       latitudeDelta:
-        Math.abs(pickupCoord.latitude - dropoffCoord.latitude) * 4 + 0.02,
+        Math.abs(riderCoord.latitude - pickupCoord.latitude) * 4 + 0.02,
       longitudeDelta:
-        Math.abs(pickupCoord.longitude - dropoffCoord.longitude) * 4 + 0.02,
+        Math.abs(riderCoord.longitude - pickupCoord.longitude) * 4 + 0.02,
     }),
     [],
   );
 
+  // Slide-up animation + countdown timer
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeIn, {
@@ -108,14 +122,21 @@ export default function DeliveryRequestScreen() {
     ]).start();
 
     const interval = setInterval(() => {
-      setCountdown((prev) => Math.max(prev - 1, 0));
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-decline when countdown hits 0
+  // Auto-decline once countdown hits zero
   useEffect(() => {
-    if (countdown === 0) {
+    if (countdown === 0 && !hasAutoDismissed.current) {
+      hasAutoDismissed.current = true;
       declineOrder(orderId)
         .catch(() => {})
         .finally(() => navigation.replace("MainTabs"));
@@ -125,7 +146,7 @@ export default function DeliveryRequestScreen() {
   const handleAccept = async () => {
     try {
       await acceptOrder(orderId);
-      navigation.replace("EnRoutePickup", route.params);
+      navigation.replace("ActiveDelivery", route.params);
     } catch {
       navigation.replace("MainTabs");
     }
@@ -165,6 +186,7 @@ export default function DeliveryRequestScreen() {
         showsCompass={false}
         toolbarEnabled={false}
       >
+        {/* Route line: rider → pickup */}
         {routeCoords.length > 0 && (
           <Polyline
             coordinates={routeCoords}
@@ -172,6 +194,19 @@ export default function DeliveryRequestScreen() {
             strokeWidth={4}
           />
         )}
+
+        {/* Rider's current position */}
+        <Marker
+          coordinate={riderCoord}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+        >
+          <View style={styles.riderDotOuter}>
+            <View style={styles.riderDot} />
+          </View>
+        </Marker>
+
+        {/* Pickup */}
         <Marker
           coordinate={pickupCoord}
           anchor={{ x: 0.5, y: 0.5 }}
@@ -181,6 +216,8 @@ export default function DeliveryRequestScreen() {
             <View style={styles.pickupDot} />
           </View>
         </Marker>
+
+        {/* Drop-off */}
         <Marker
           coordinate={dropoffCoord}
           anchor={{ x: 0.5, y: 1 }}
@@ -191,27 +228,27 @@ export default function DeliveryRequestScreen() {
             <View style={styles.dropoffTail} />
           </View>
         </Marker>
-        <Marker
-          coordinate={{
-            latitude:
-              (pickupCoord.latitude + dropoffCoord.latitude) / 2 + 0.005,
-            longitude: (pickupCoord.longitude + dropoffCoord.longitude) / 2,
-          }}
-          anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
-        >
-          <View style={styles.etaBadge}>
-            <Text style={styles.etaText}>{displayEta} min</Text>
-          </View>
-        </Marker>
+
+        {/* ETA badge */}
+        {displayEta != null && (
+          <Marker
+            coordinate={{
+              latitude:
+                (riderCoord.latitude + pickupCoord.latitude) / 2 + 0.004,
+              longitude: (riderCoord.longitude + pickupCoord.longitude) / 2,
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+          >
+            <View style={styles.etaBadge}>
+              <Text style={styles.etaText}>{displayEta} min</Text>
+            </View>
+          </Marker>
+        )}
       </MapView>
 
-      <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
-        <View style={styles.pill}>
-          <PowerCircleIcon width={18} height={18} />
-          <Text style={styles.pillText}>Go offline</Text>
-        </View>
-      </SafeAreaView>
+      {/* Consistent pill — same component used on every map screen */}
+      <OfflinePill />
 
       <Animated.View
         style={[
@@ -219,6 +256,7 @@ export default function DeliveryRequestScreen() {
           { opacity: fadeIn, transform: [{ translateY: slideUp }] },
         ]}
       >
+        {/* Customer row */}
         <View style={styles.customerRow}>
           <View style={styles.avatarCircle}>
             <UserAvatarIcon width={22} height={24} />
@@ -240,13 +278,14 @@ export default function DeliveryRequestScreen() {
 
         <View style={styles.divider} />
 
+        {/* Route details */}
         <View style={styles.routeSection}>
           <View style={styles.routeLeft}>
             <View style={styles.routeRow}>
               <Text style={styles.routeEmoji}>📦</Text>
               <View style={styles.routeTextWrap}>
                 <Text style={styles.routeLabel}>
-                  Pick - up ({displayEta} min away)
+                  Pick-up{displayEta != null ? ` (${displayEta} min away)` : ""}
                 </Text>
                 <Text style={styles.routeValue}>{pickupAddress}</Text>
                 <Text style={styles.routeValue}>{itemType}</Text>
@@ -260,14 +299,15 @@ export default function DeliveryRequestScreen() {
             <View style={styles.routeRow}>
               <Text style={styles.routeEmoji}>📍</Text>
               <View style={styles.routeTextWrap}>
-                <Text style={styles.routeLabel}>Drop - off</Text>
+                <Text style={styles.routeLabel}>Drop-off</Text>
                 <Text style={styles.routeValue}>{dropoffAddress}</Text>
               </View>
             </View>
           </View>
-          <Text style={styles.price}>GHS {price.toFixed(2)}</Text>
+          <Text style={styles.price}>GHS {Number(price).toFixed(2)}</Text>
         </View>
 
+        {/* Action buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.acceptBtn}
@@ -301,6 +341,25 @@ export default function DeliveryRequestScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // Rider dot (blue pulsing-style outer ring)
+  riderDotOuter: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,200,0,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  riderDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#FFCC00",
+    borderWidth: 2.5,
+    borderColor: Colors.white,
+  },
+
   pickupDotOuter: {
     width: 22,
     height: 22,
@@ -342,29 +401,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.white,
   },
-  topOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 58 : 38,
-    zIndex: 10,
-  },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    gap: 7,
-  },
-  pillText: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: Typography.base,
-    color: Colors.white,
-  },
+
   card: {
     position: "absolute",
     bottom: 72,

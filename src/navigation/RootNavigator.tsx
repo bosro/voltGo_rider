@@ -8,7 +8,6 @@ import PhoneEntryScreen from "../screens/auth/PhoneEntryScreen";
 import OTPScreen from "../screens/auth/OTPScreen";
 import BiometricSetupScreen from "../screens/auth/BiometricSetupScreen";
 import {
-  CreateProfileStep1Screen,
   CreateProfileStep2Screen,
   CreateProfileStep3Screen,
   CreateProfileStep4Screen,
@@ -17,6 +16,8 @@ import MainNavigator from "./MainNavigator";
 import NotificationPermissionScreen from "@/screens/main/onboarding/NotificationPermissionScreen";
 
 import { useAuthStore } from "../store/authStore";
+import ResetPasswordScreen from "@/screens/auth/ResetPassword";
+import ForgotPasswordScreen from "@/screens/auth/ForgotPasswordScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -46,16 +47,22 @@ export default function RootNavigator() {
         component={PhoneEntryScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
+       <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ animation: "slide_from_right", gestureEnabled: true }}
+      />
+       <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{ animation: "slide_from_right", gestureEnabled: true }}
+      />
       <Stack.Screen
         name="OTP"
         component={OTPScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
-      <Stack.Screen
-        name="CreateProfileStep1"
-        component={CreateProfileStep1Screen}
-        options={{ animation: "slide_from_right" }}
-      />
+   
       <Stack.Screen
         name="CreateProfileStep2"
         component={CreateProfileStep2Screen}
@@ -89,3 +96,5 @@ export default function RootNavigator() {
     </Stack.Navigator>
   );
 }
+
+

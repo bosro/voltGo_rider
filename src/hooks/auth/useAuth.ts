@@ -14,7 +14,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authApi, RegisterPayload, riderApi } from "../../lib/api";
+import { authApi, RegisterPayload, riderApi, RiderProfile } from "../../lib/api";
 import { useAuthStore } from "../../store/authStore";
 import { useRiderStore } from "../../store/riderStore";
 
@@ -46,27 +46,35 @@ export function useVerifyOtp() {
 
     onSuccess: async (response) => {
       const payload = response.data?.data;
-      if (payload?.access_token && payload?.refresh_token && payload?.rider) {
-        await login(payload.access_token, payload.refresh_token, payload.rider);
+
+      // Normalize both field-name shapes
+      const accessToken = payload?.access_token ?? (payload as any)?.token;
+      const refreshToken =
+        payload?.refresh_token ?? (payload as any)?.refreshToken ?? "";
+
+      if (accessToken) {
+        await login(
+          accessToken,
+          refreshToken,
+          payload?.rider ?? {
+            id: (payload as any)?.id ?? "",
+            name: "",
+            phone: "",
+            is_online: false,
+            kyc_status: "pending",
+            created_at: "",
+          },
+        );
       }
-      // If requires_registration → caller navigates to registration flow
     },
   });
 }
 
 // ── Register rider (called after KYC form completion) ────────────────────────
 export function useRegisterRider() {
-  const { login } = useAuthStore();
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (payload: RegisterPayload) => authApi.register(payload),
-
-    onSuccess: async (response) => {
-      const { access_token, refresh_token, rider } = response.data.data;
-      await login(access_token, refresh_token, rider);
-      queryClient.setQueryData(AUTH_QUERY_KEYS.me, rider);
-    },
+    // No onSuccess needed — screen handles navigation to OTP
   });
 }
 
@@ -74,14 +82,42 @@ export function useRegisterRider() {
 export function useLoginRider() {
   const { login } = useAuthStore();
   const queryClient = useQueryClient();
-
+ 
   return useMutation({
     mutationFn: ({ phone, password }: { phone: string; password: string }) =>
       authApi.login(phone, password),
-
+ 
     onSuccess: async (response) => {
-      const { access_token, refresh_token, rider } = response.data.data;
-      await login(access_token, refresh_token, rider);
+      const data:any = response.data?.data;
+ 
+      // Normalise both field-name shapes the API might return
+      const accessToken  = data?.access_token  ?? data?.token;
+      const refreshToken = data?.refresh_token ?? data?.refreshToken ?? "";
+ 
+      if (!accessToken) {
+        // Defensive — shouldn't happen on a 200 but surface it clearly
+        throw new Error("Login response missing token.");
+      }
+ 
+      // Build a RiderProfile from the flat fields
+      const rider: RiderProfile = {
+        id:           data.id           ?? "",
+        name:         data.full_name    ?? data.name ?? "",
+        full_name:    data.full_name,
+        phone:        data.phone        ?? "",
+        email:        data.email        ?? null,
+        avatar_url:   data.avatar_url   ?? null,
+        is_online:    data.active_status === "online" || data.is_online === true,
+        active_status: data.active_status,
+        kyc_status:   data.kyc_status   ?? "pending",
+        vehicle_type: data.vehicle_type ?? null,
+        rating:       data.rating,
+        total_deliveries: data.total_deliveries,
+        wallet_balance:   data.wallet_balance,
+        created_at:   data.created_at  ?? new Date().toISOString(),
+      };
+ 
+      await login(accessToken, refreshToken, rider);
       queryClient.setQueryData(AUTH_QUERY_KEYS.me, rider);
     },
   });
@@ -149,3 +185,5 @@ export function useResetPassword() {
     }) => authApi.resetPassword(phone, otp, password),
   });
 }
+
+

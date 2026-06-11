@@ -9,6 +9,7 @@ import {
   Dimensions,
   Alert,
   Image,
+  TouchableOpacity,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -29,15 +30,12 @@ import { useAuthStore } from "../../store/authStore";
 
 const heroImage = require("../../../assets/images/create-profile-hero.png");
 
-import UserProfileIcon from "../../../assets/icons/user-profile.svg";
-import EmailIcon from "../../../assets/icons/email.svg";
-import GlobeIcon from "../../../assets/icons/globe.svg";
-import ChevronDownIcon from "../../../assets/icons/chevron-down-sm.svg";
 import IdCardIcon from "../../../assets/icons/id-card.svg";
 import BicycleIcon from "../../../assets/icons/bicycle.svg";
 import UploadCloudIcon from "../../../assets/icons/upload-cloud.svg";
 import PlusWhiteIcon from "../../../assets/icons/plus-white.svg";
 import WalletIcon from "../../../assets/icons/wallet.svg";
+import ChevronDownIcon from "../../../assets/icons/chevron-down-sm.svg";
 
 const { height } = Dimensions.get("window");
 const HERO_H = height * 0.3;
@@ -45,6 +43,7 @@ const HERO_H = height * 0.3;
 // ── ProfileShell ───────────────────────────────────────────────────────────────
 function ProfileShell({
   step,
+  totalSteps = 3,
   children,
   onNext,
   onBack,
@@ -52,6 +51,7 @@ function ProfileShell({
   isLoading = false,
 }: {
   step: number;
+  totalSteps?: number;
   children: React.ReactNode;
   onNext: () => void;
   onBack?: () => void;
@@ -95,7 +95,7 @@ function ProfileShell({
           ]}
         >
           <Text style={shellS.heading}>Create Profile</Text>
-          <StepDots current={step} />
+          <StepDots current={step} total={totalSteps} />
           {children}
           <View style={{ height: 20 }} />
           <NavyButton
@@ -137,115 +137,106 @@ const shellS = StyleSheet.create({
   },
 });
 
-// ── Step 1 — Personal Info ─────────────────────────────────────────────────────
-export function CreateProfileStep1Screen() {
+// ── Step 1 — ID & Vehicle (was Step 2) ────────────────────────────────────────
+// Navigator still calls this "CreateProfileStep2" so no route name changes needed
+export function CreateProfileStep2Screen() {
   const navigation = useNavigation<any>();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [language, setLanguage] = useState("");
+  const [ghanaCardNo, setGhanaCardNo] = useState("");
+  const [licenseNo, setLicenseNo] = useState("");
+  const [vehicleTypePreference, setVehicleTypePreference] = useState("");
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+
+  const vehicleOptions = ["motorcycle", "bicycle", "car", "van", "truck"];
 
   return (
     <ProfileShell
       step={1}
       onNext={() => {
-        if (!name.trim())
-          return Alert.alert("Required", "Please enter your full name.");
-        if (!language)
-          return Alert.alert("Required", "Please select a preferred language.");
-        navigation.navigate("CreateProfileStep2", { name, email, language });
-      }}
-    >
-      <FieldLabel label="Name" />
-      <InputField
-        IconComponent={UserProfileIcon}
-        iconWidth={18}
-        iconHeight={20}
-        placeholder="Enter full name here.."
-        value={name}
-        onChangeText={setName}
-        autoCapitalize="words"
-      />
-      <FieldLabel label="Email" optional />
-      <InputField
-        IconComponent={EmailIcon}
-        iconWidth={20}
-        iconHeight={16}
-        placeholder="Enter email here.."
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <FieldLabel label="Preferred Language" />
-      <DropdownField
-        IconComponent={GlobeIcon}
-        iconWidth={20}
-        iconHeight={20}
-        placeholder="Select preferred language"
-        value={language}
-        onPress={() => setLanguage("English")}
-        ChevronComponent={ChevronDownIcon}
-      />
-    </ProfileShell>
-  );
-}
-
-// ── Step 2 — ID & Vehicle ──────────────────────────────────────────────────────
-type Step2P = RouteProp<RootStackParamList, "CreateProfileStep2">;
-export function CreateProfileStep2Screen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<Step2P>();
-  const [idType, setIdType] = useState("");
-  const [idNumber, setIdNumber] = useState("");
-  const [vehicleType, setVehicleType] = useState("");
-
-  return (
-    <ProfileShell
-      step={2}
-      onNext={() => {
-        if (!idType || !idNumber.trim() || !vehicleType)
-          return Alert.alert("Required", "Please fill all fields.");
+        if (!ghanaCardNo.trim())
+          return Alert.alert(
+            "Required",
+            "Please enter your Ghana Card number.",
+          );
+        if (!vehicleTypePreference)
+          return Alert.alert("Required", "Please select a vehicle type.");
         navigation.navigate("CreateProfileStep3", {
-          ...route.params,
-          idType,
-          idNumber,
-          vehicleType,
+          ghanaCardNo,
+          licenseNo,
+          vehicleTypePreference,
         });
       }}
-      onBack={() => navigation.goBack()}
     >
-      <FieldLabel label="Identification Card" />
-      <DropdownField
-        placeholder="Select identification card type"
-        value={idType}
-        onPress={() => setIdType("Ghana Card")}
-        ChevronComponent={ChevronDownIcon}
-      />
-      <FieldLabel label="ID Card Number" />
+      <Text style={stepS.subtitle}>
+        We need a few details to verify your identity.
+      </Text>
+
+      <FieldLabel label="Ghana Card Number" />
       <InputField
         IconComponent={IdCardIcon}
         iconWidth={22}
         iconHeight={16}
-        placeholder="Enter ID number here"
-        value={idNumber}
-        onChangeText={setIdNumber}
+        placeholder="GHA-123456789-0"
+        value={ghanaCardNo}
+        onChangeText={setGhanaCardNo}
         autoCapitalize="characters"
       />
+
+      <FieldLabel label="Driver's License Number" optional />
+      <InputField
+        IconComponent={IdCardIcon}
+        iconWidth={22}
+        iconHeight={16}
+        placeholder="DL-0012345"
+        value={licenseNo}
+        onChangeText={setLicenseNo}
+        autoCapitalize="characters"
+      />
+
       <FieldLabel label="Vehicle Type" />
       <DropdownField
         IconComponent={BicycleIcon}
         iconWidth={22}
         iconHeight={16}
         placeholder="Select vehicle type"
-        value={vehicleType}
-        onPress={() => setVehicleType("Bicycle")}
+        value={
+          vehicleTypePreference
+            ? vehicleTypePreference.charAt(0).toUpperCase() +
+              vehicleTypePreference.slice(1)
+            : ""
+        }
+        onPress={() => setShowVehicleModal(true)}
         ChevronComponent={ChevronDownIcon}
       />
+
+      {showVehicleModal && (
+        <View style={dropdownS.overlay}>
+          {vehicleOptions.map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={dropdownS.option}
+              onPress={() => {
+                setVehicleTypePreference(option);
+                setShowVehicleModal(false);
+              }}
+            >
+              <Text style={dropdownS.optionText}>
+                {option.charAt(0).toUpperCase() + option.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={dropdownS.cancel}
+            onPress={() => setShowVehicleModal(false)}
+          >
+            <Text style={dropdownS.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </ProfileShell>
   );
 }
 
-// ── Step 3 — Document Upload ───────────────────────────────────────────────────
+// ── Step 2 — Document Upload (was Step 3) ─────────────────────────────────────
 type Step3P = RouteProp<RootStackParamList, "CreateProfileStep3">;
 export function CreateProfileStep3Screen() {
   const navigation = useNavigation<any>();
@@ -263,7 +254,7 @@ export function CreateProfileStep3Screen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.85,
@@ -274,7 +265,7 @@ export function CreateProfileStep3Screen() {
 
   return (
     <ProfileShell
-      step={3}
+      step={2}
       onNext={() => {
         if (!ghanaCardUri)
           return Alert.alert("Required", "Please upload your Ghana Card.");
@@ -287,9 +278,8 @@ export function CreateProfileStep3Screen() {
         });
       }}
       onBack={() => navigation.goBack()}
-      nextLabel="Next"
     >
-      <View style={{ height: 10 }} />
+      <Text style={stepS.subtitle}>Upload clear photos of your documents.</Text>
       <UploadCard
         title="Ghana Card"
         fileUri={ghanaCardUri}
@@ -308,28 +298,34 @@ export function CreateProfileStep3Screen() {
   );
 }
 
-// ── Step 4 — Payout Account + Submit KYC ──────────────────────────────────────
+// ── Step 3 — Payout Account + Submit KYC (was Step 4) ─────────────────────────
 type Step4P = RouteProp<RootStackParamList, "CreateProfileStep4">;
 export function CreateProfileStep4Screen() {
   const navigation = useNavigation<any>();
   const route = useRoute<Step4P>();
-  const [accountType, setAccountType] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountName, setAccountName] = useState("");
+  const [momoNumber, setMomoNumber] = useState("");
+  const [momoProvider, setMomoProvider] = useState("");
+  const [showProviderModal, setShowProviderModal] = useState(false);
 
   const { mutateAsync: submitKyc, isPending } = useSubmitKyc();
 
+  // API accepts: mtn, vodafone, airteltigo
+  const providerOptions = [
+    { key: "mtn", label: "MTN Mobile Money" },
+    { key: "vodafone", label: "Vodafone Cash" },
+    { key: "airteltigo", label: "AirtelTigo Money" },
+  ];
+
   const handleComplete = async () => {
-    if (!accountType || !accountNumber.trim() || !accountName.trim())
-      return Alert.alert("Required", "Please fill all fields.");
+    if (!momoNumber.trim())
+      return Alert.alert("Required", "Please enter your MoMo number.");
+    if (!momoProvider)
+      return Alert.alert("Required", "Please select a MoMo provider.");
 
     const {
-      name,
-      email,
-      language,
-      idType,
-      idNumber,
-      vehicleType,
+      ghanaCardNo,
+      licenseNo,
+      vehicleTypePreference,
       ghanaCardUri,
       profilePhotoUri,
     } = route.params;
@@ -341,79 +337,131 @@ export function CreateProfileStep4Screen() {
       );
     }
 
+    // Validate ghana_card_no is present before building form
+    if (!ghanaCardNo?.trim()) {
+      return Alert.alert(
+        "Error",
+        "Ghana Card number is missing. Please go back and enter it.",
+      );
+    }
+
     try {
       const form = buildKycFormData({
-        name,
-        email,
-        language,
-        id_type: idType,
-        id_number: idNumber,
-        vehicle_type: vehicleType,
+        ghana_card_no: ghanaCardNo.trim(),
+        license_no: licenseNo?.trim() || undefined,
+        vehicle_type_preference: vehicleTypePreference,
+        momo_number: momoNumber.trim(),
+        momo_provider: momoProvider,
         ghanaCardUri,
         profilePhotoUri,
-        account_type: accountType,
-        account_number: accountNumber,
-        account_name: accountName,
       });
 
       await submitKyc(form);
       navigation.navigate("BiometricSetup");
     } catch (err: any) {
-      const message =
+      const msg =
         err?.response?.data?.message ?? "Submission failed. Please try again.";
-      Alert.alert("KYC Error", message);
+      Alert.alert("KYC Error", msg);
     }
   };
 
   return (
     <ProfileShell
-      step={4}
+      step={3}
       onNext={handleComplete}
       onBack={() => navigation.goBack()}
       nextLabel="Complete"
       isLoading={isPending}
     >
-      <Text style={step4S.subtitle}>
-        Add an account for earning disbursement
+      <Text style={stepS.subtitle}>
+        Add your Mobile Money account to receive earnings.
       </Text>
-      <FieldLabel label="Account Type" />
+
+      <FieldLabel label="MoMo Provider" />
       <DropdownField
-        placeholder="Select account type"
-        value={accountType}
-        onPress={() => setAccountType("Mobile Money")}
+        placeholder="Select provider"
+        value={providerOptions.find((p) => p.key === momoProvider)?.label ?? ""}
+        onPress={() => setShowProviderModal(true)}
         ChevronComponent={ChevronDownIcon}
       />
-      <FieldLabel label="Account Number" />
+
+      {showProviderModal && (
+        <View style={dropdownS.overlay}>
+          {providerOptions.map((option) => (
+            <TouchableOpacity
+              key={option.key}
+              style={dropdownS.option}
+              onPress={() => {
+                setMomoProvider(option.key);
+                setShowProviderModal(false);
+              }}
+            >
+              <Text style={dropdownS.optionText}>{option.label}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={dropdownS.cancel}
+            onPress={() => setShowProviderModal(false)}
+          >
+            <Text style={dropdownS.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <FieldLabel label="MoMo Number" />
       <InputField
         IconComponent={WalletIcon}
         iconWidth={20}
         iconHeight={18}
-        placeholder="Enter account number here"
-        value={accountNumber}
-        onChangeText={setAccountNumber}
+        placeholder="0551234567"
+        value={momoNumber}
+        onChangeText={setMomoNumber}
         keyboardType="phone-pad"
-      />
-      <FieldLabel label="Account Name" />
-      <InputField
-        IconComponent={UserProfileIcon}
-        iconWidth={18}
-        iconHeight={20}
-        placeholder="Enter account name.."
-        value={accountName}
-        onChangeText={setAccountName}
-        autoCapitalize="words"
       />
     </ProfileShell>
   );
 }
 
-const step4S = StyleSheet.create({
+const stepS = StyleSheet.create({
   subtitle: {
     fontFamily: "Poppins-Regular",
     fontSize: Typography.base,
     color: Colors.textSecondary,
     textAlign: "center",
     marginTop: 6,
-    marginBottom: 4,
+    marginBottom: 16,
+  },
+});
+
+const dropdownS = StyleSheet.create({
+  overlay: {
+    backgroundColor: Colors.inputBg,
+    borderRadius: Radius.lg,
+    marginTop: -8,
+    marginBottom: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  option: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  optionText: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.base,
+    color: Colors.textPrimary,
+  },
+  cancel: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  cancelText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
+    color: Colors.textMuted,
   },
 });

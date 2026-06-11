@@ -5,15 +5,16 @@
  *
  *  useSubmitKyc  → POST /rider/kyc  (multipart/form-data)
  *
- * Usage in CreateProfileStep3 (document upload screen):
- *
- *   const { mutateAsync: submitKyc, isPending } = useSubmitKyc();
- *
- *   const handleSubmit = async () => {
- *     const form = buildKycFormData({ ... });
- *     await submitKyc(form);
- *     navigation.navigate('BiometricSetup');
- *   };
+ * API expects:
+ *  {
+ *    ghana_card_no:          string   (required)
+ *    license_no:             string   (optional)
+ *    vehicle_type_preference: string  (required) e.g. "motorcycle"
+ *    momo_number:            string   (required)
+ *    momo_provider:          string   (required) e.g. "mtn"
+ *    ghana_card_image:       file     (required)
+ *    profile_photo:          file     (required)
+ *  }
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,22 +22,17 @@ import { kycApi } from "../../lib/api";
 import { useAuthStore } from "../../store/authStore";
 import { AUTH_QUERY_KEYS } from "./useAuth";
 
-// ── Payload builder ───────────────────────────────────────────────────────────
+// ── Payload shape ─────────────────────────────────────────────────────────────
 export interface KycPayload {
-  name: string;
-  email?: string;
-  language?: string;
-  id_type: string;
-  id_number: string;
-  vehicle_type: string;
-  /** local file URI for the ID document image */
+  ghana_card_no: string;
+  license_no?: string;
+  vehicle_type_preference: string;
+  momo_number: string;
+  momo_provider: string;
+  /** local file URI for the Ghana Card image */
   ghanaCardUri: string;
   /** local file URI for the profile photo */
   profilePhotoUri: string;
-  /** optional MoMo payout account */
-  account_type?: string;
-  account_number?: string;
-  account_name?: string;
 }
 
 /**
@@ -45,23 +41,20 @@ export interface KycPayload {
 export function buildKycFormData(payload: KycPayload): FormData {
   const form = new FormData();
 
-  form.append("name", payload.name);
-  form.append("id_type", payload.id_type);
-  form.append("id_number", payload.id_number);
-  form.append("vehicle_type", payload.vehicle_type);
+  // ── Text fields ─────────────────────────────────────────────────
+  form.append("ghana_card_no", payload.ghana_card_no);
+  form.append("vehicle_type_preference", payload.vehicle_type_preference);
+  form.append("momo_number", payload.momo_number);
+  form.append("momo_provider", payload.momo_provider);
 
-  if (payload.email) form.append("email", payload.email);
-  if (payload.language) form.append("language", payload.language);
+  if (payload.license_no) {
+    form.append("license_no", payload.license_no);
+  }
 
-  if (payload.account_type) form.append("account_type", payload.account_type);
-  if (payload.account_number)
-    form.append("account_number", payload.account_number);
-  if (payload.account_name) form.append("account_name", payload.account_name);
-
-  // Append files — React Native FormData accepts the { uri, name, type } shape
-  form.append("id_document", {
+  // ── File fields — React Native FormData accepts { uri, name, type } ──
+  form.append("ghana_card_image", {
     uri: payload.ghanaCardUri,
-    name: "id_document.jpg",
+    name: "ghana_card.jpg",
     type: "image/jpeg",
   } as any);
 
@@ -92,3 +85,5 @@ export function useSubmitKyc() {
     },
   });
 }
+
+

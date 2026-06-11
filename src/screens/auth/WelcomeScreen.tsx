@@ -1,14 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 import {
-  View, Text, StyleSheet, StatusBar, Animated,
-  Dimensions, Image
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { NavyButton } from '../../components/common';
-import { Colors, Typography } from '../../theme';
+  View,
+  Text,
+  StyleSheet,
+  StatusBar,
+  Animated,
+  Dimensions,
+  Image,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { NavyButton } from "../../components/common";
+import { Colors, Typography } from "../../theme";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.58;
 
 export default function WelcomeScreen() {
@@ -49,10 +54,13 @@ export default function WelcomeScreen() {
       {/* Hero — image only, no background box */}
       <View style={[styles.heroSection, { marginTop: insets.top + 12 }]}>
         <Animated.View
-          style={[styles.illustrationWrap, { transform: [{ scale: imgScale }] }]}
+          style={[
+            styles.illustrationWrap,
+            { transform: [{ scale: imgScale }] },
+          ]}
         >
           <Image
-            source={require('../../../assets/images/onboarding1.png')}
+            source={require("../../../assets/images/onboarding1.png")}
             style={{ width: width * 1.2, height: HERO_HEIGHT * 1.1 }}
             resizeMode="contain"
           />
@@ -66,14 +74,17 @@ export default function WelcomeScreen() {
           { opacity: fadeIn, transform: [{ translateY: slideUp }] },
         ]}
       >
-        <Text style={styles.heading}>{'Student Commerce\nAnd Mobility Made Efficient!'}</Text>
+        <Text style={styles.heading}>
+          {"Student Commerce\nAnd Mobility Made Efficient!"}
+        </Text>
         <Text style={styles.body}>
-          Deliver, track, and pay seamlessly with one smart{'\n'}app built for campus convenience.
+          Deliver, track, and pay seamlessly with one smart{"\n"}app built for
+          campus convenience.
         </Text>
         <NavyButton
           label="Get started"
-          onPress={() => navigation.navigate('PhoneEntry')}
-          style={[styles.btn, { marginBottom: insets.bottom + 16 }]}
+          onPress={() => navigation.navigate("PhoneEntry")}
+          style={[styles.btn, { marginBottom: Math.max(insets.bottom, 8) + 8 }]}
         />
       </Animated.View>
     </View>
@@ -85,40 +96,40 @@ const styles = StyleSheet.create({
 
   heroSection: {
     height: HERO_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 10,
   },
   illustrationWrap: {
-    width: '100%',
+    width: "100%",
     height: HERO_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   bottom: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 28,
-    alignItems: 'center',
+    alignItems: "center",
   },
   heading: {
-    fontFamily: 'HelveticaNeue-CondensedBold',
+    fontFamily: "HelveticaNeue-CondensedBold",
     fontSize: 26,
     color: Colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 32,
     marginBottom: 12,
     letterSpacing: -0.3,
   },
   body: {
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
     fontSize: Typography.base,
     color: Colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 28,
     paddingHorizontal: 8,
   },
-  btn: { width: '100%', marginTop: 'auto', marginHorizontal: 0 },
+  btn: { width: "100%", marginHorizontal: 0, },
 });

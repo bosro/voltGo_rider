@@ -35,8 +35,17 @@ export function useRiderProfile() {
     queryKey: RIDER_QUERY_KEYS.profile,
     queryFn: async () => {
       const res = await riderApi.getProfile();
-      updateRider(res.data.data);
-      return res.data.data;
+      const raw = res.data.data as any;
+
+      // Remap API shape → RiderProfile shape
+      const profile = {
+        ...raw,
+        name: raw.full_name ?? raw.name ?? "",
+        is_online: raw.active_status === "online",
+      };
+
+      updateRider(profile);
+      return profile;
     },
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1_000,

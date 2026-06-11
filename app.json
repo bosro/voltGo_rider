@@ -9,17 +9,15 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B3C5D" // ← changed
+      "backgroundColor": "#0B3C5D"
     },
     "assetBundlePatterns": ["**/*"],
-
     "fonts": [
-      "./assets/fonts/HelveticaNeue-CondensedBold.ttf",
+      "./assets/fonts/HelveticaNeue-CondensedBold.otf",
       "./assets/fonts/Poppins-Regular.ttf",
       "./assets/fonts/Poppins-SemiBold.ttf",
       "./assets/fonts/Poppins-Bold.ttf"
     ],
-
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.voltgo.rider",
@@ -33,46 +31,44 @@
         "NSMicrophoneUsageDescription": "VoltGo may need microphone access during camera use."
       },
       "config": {
-        // "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
         "googleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
       }
     },
-
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-logo.png",
         "backgroundImage": "./assets/images/android-bg.png",
-        "backgroundColor": "#0B3C5D" // ← changed
+        "backgroundColor": "#0B3C5D"
       },
       "package": "com.voltgo.rider",
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "config": {
         "googleMaps": {
-          // "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
           "apiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
         }
       }
     },
-
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
-
     "plugins": [
       [
         "expo-font",
         {
           "fonts": [
-            "./assets/fonts/HelveticaNeue-CondensedBold.ttf",
+            "./assets/fonts/HelveticaNeue-CondensedBold.otf",
             "./assets/fonts/Poppins-Regular.ttf",
             "./assets/fonts/Poppins-SemiBold.ttf",
             "./assets/fonts/Poppins-Bold.ttf"
@@ -104,8 +100,8 @@
       [
         "react-native-maps",
         {
-          // "googleMapsApiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
-          "googleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
+          "androidGoogleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo",
+          "iosGoogleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
         }
       ],
       [
@@ -115,6 +111,12 @@
           "color": "#0D2240"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7b386255-2f31-4a08-9342-04b9c91e77d0"
+      }
+    },
+    "owner": "mrbosro"
   }
 }

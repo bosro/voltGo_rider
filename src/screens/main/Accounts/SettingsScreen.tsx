@@ -21,7 +21,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 const ABOUT_ITEMS = [
   { label: 'Terms & Conditions', onPress: () => Linking.openURL('https://voltgoapp.com/terms') },
   { label: 'Privacy Policy',     onPress: () => Linking.openURL('https://voltgoapp.com/privacy') },
-  { label: 'Licences',           onPress: () => {} },
+  // { label: 'Licences',           onPress: () => {} },
 ];
 
 export default function SettingsScreen() {
@@ -101,13 +101,13 @@ export default function SettingsScreen() {
         <Text style={styles.version}>VoltGo v1.0.0</Text>
 
         {/* Log out */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.logoutBtn}
           activeOpacity={0.8}
           onPress={() => setLogoutModalVisible(true)}
         >
           <Text style={styles.logoutText}>Log out</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <View style={{ height: 16 }} />
 
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   backBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  backArrow: { width: 10, height: 18 },
+  backArrow: { width: 20, height: 18 },
   headerTitle: {
     flex: 1,
     textAlign: 'center',

@@ -15,7 +15,6 @@ import FilterSlidersIcon from "../../../../assets/icons/filter-sliders.svg";
 import { useMyOrders } from "../../../hooks/rider/useOrders";
 import { Order } from "../../../lib/api";
 
-/** Group orders by month label for SectionList */
 function groupOrdersByMonth(
   orders: Order[],
 ): { title: string; data: Order[] }[] {
@@ -34,6 +33,7 @@ function groupOrdersByMonth(
 
 function formatOrderDate(iso: string) {
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return "Unknown date";
   return (
     d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) +
     " · " +
@@ -41,11 +41,31 @@ function formatOrderDate(iso: string) {
   );
 }
 
+function EmptyState({ tab }: { tab: "Past" | "Upcoming" }) {
+  const isPast = tab === "Past";
+  return (
+    <View style={emptyStyles.wrap}>
+      <View style={emptyStyles.iconCircle}>
+        <Text style={emptyStyles.icon}>{isPast ? "🛵" : "📦"}</Text>
+      </View>
+      <Text style={emptyStyles.title}>
+        {isPast ? "No deliveries yet" : "Nothing scheduled"}
+      </Text>
+      <Text style={emptyStyles.subtitle}>
+        {isPast
+          ? "Your completed and cancelled deliveries will appear here once you start riding."
+          : "You have no upcoming deliveries right now.\nStay online to receive new orders."}
+      </Text>
+    </View>
+  );
+}
+
 export default function ActivitiesScreen() {
   const [activeTab, setActiveTab] = useState<"Past" | "Upcoming">("Past");
   const navigation = useNavigation<any>();
-  const { data: orders = [], isLoading, isError, refetch } = useMyOrders();
+  const { data: rawOrders, isLoading, isError, refetch } = useMyOrders();
 
+  const orders = Array.isArray(rawOrders) ? rawOrders : [];
   const completedOrders = orders.filter(
     (o) => o.status === "delivered" || o.status === "cancelled",
   );
@@ -55,6 +75,7 @@ export default function ActivitiesScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
       <Text style={styles.heading}>Activities</Text>
+
       <View style={styles.tabRow}>
         <View style={styles.tabsLeft}>
           {(["Past", "Upcoming"] as const).map((tab) => (
@@ -86,13 +107,15 @@ export default function ActivitiesScreen() {
         </View>
       ) : isError ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>Failed to load orders.</Text>
-          <TouchableOpacity onPress={() => refetch()} style={{ marginTop: 8 }}>
-            <Text
-              style={{ color: Colors.navy, fontFamily: "Poppins-SemiBold" }}
-            >
-              Retry
-            </Text>
+          <View style={emptyStyles.iconCircle}>
+            <Text style={emptyStyles.icon}>⚠️</Text>
+          </View>
+          <Text style={emptyStyles.title}>Something went wrong</Text>
+          <Text style={emptyStyles.subtitle}>
+            We couldn't load your orders. Check your connection and try again.
+          </Text>
+          <TouchableOpacity onPress={() => refetch()} style={styles.retryBtn}>
+            <Text style={styles.retryText}>Try Again</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -129,7 +152,7 @@ export default function ActivitiesScreen() {
               >
                 {item.status === "cancelled"
                   ? "Cancelled"
-                  : `GHS ${item.price.toFixed(2)}`}
+                  : `GHS ${(item.price ?? 0).toFixed(2)}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -142,20 +165,44 @@ export default function ActivitiesScreen() {
           ItemSeparatorComponent={() => <View style={styles.rowDivider} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 16 }}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>
-                {activeTab === "Upcoming"
-                  ? "No upcoming deliveries"
-                  : "No past deliveries yet"}
-              </Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState tab={activeTab} />}
         />
       )}
     </SafeAreaView>
   );
 }
+
+const emptyStyles = StyleSheet.create({
+  wrap: {
+    alignItems: "center",
+    paddingTop: 64,
+    paddingHorizontal: 36,
+  },
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#F4F6FA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  icon: { fontSize: 44 },
+  title: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.lg,
+    color: Colors.textPrimary,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  subtitle: {
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.sm,
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+});
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
@@ -227,10 +274,16 @@ const styles = StyleSheet.create({
   },
   rowDivider: { height: 1, backgroundColor: Colors.divider },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  empty: { paddingTop: 60, alignItems: "center" },
-  emptyText: {
-    fontFamily: "Poppins-Regular",
+  retryBtn: {
+    marginTop: 20,
+    backgroundColor: Colors.navy,
+    borderRadius: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 11,
+  },
+  retryText: {
+    fontFamily: "Poppins-SemiBold",
     fontSize: Typography.base,
-    color: Colors.textMuted,
+    color: Colors.white,
   },
 });

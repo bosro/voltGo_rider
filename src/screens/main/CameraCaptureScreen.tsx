@@ -1,3 +1,15 @@
+/**
+ * CameraCaptureScreen.tsx
+ * ─────────────────────────────────────────────────────────────────
+ * Proof-of-delivery camera. After capturing, navigates to
+ * SubmitPhotoScreen with the full order params preserved.
+ *
+ * Fix vs previous version:
+ *  - All route params (amount, pickupAddress, dropoffAddress, itemType)
+ *    are forwarded to SubmitPhoto so Retake → CameraCapture → SubmitPhoto
+ *    never loses context.
+ */
+
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -6,7 +18,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Dimensions,
   Platform,
   Alert,
 } from "react-native";
@@ -19,21 +30,21 @@ import FlashIcon from "../../../assets/icons/camera-flash.svg";
 import ChevronUpIcon from "../../../assets/icons/camera-chevron-up.svg";
 import NoMicIcon from "../../../assets/icons/camera-no-mic.svg";
 
-const { width, height } = Dimensions.get("window");
 type CameraParams = RouteProp<MainStackParamList, "CameraCapture">;
+
+const MODES = ["CINEMATIC", "VIDEO", "PHOTO", "PORTRAIT", "PANO"] as const;
 
 export default function CameraCaptureScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<CameraParams>();
-  const { orderId } = route.params;
+  const { orderId, amount, pickupAddress, dropoffAddress, itemType } =
+    route.params as any;
 
   const cameraRef = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>("back");
   const [flashMode, setFlashMode] = useState<"off" | "on" | "auto">("off");
   const [zoom, setZoom] = useState<"0.5" | "1">("1");
-  const [mode, setMode] = useState<
-    "CINEMATIC" | "VIDEO" | "PHOTO" | "PORTRAIT" | "PANO"
-  >("PHOTO");
+  const [mode, setMode] = useState<(typeof MODES)[number]>("PHOTO");
   const [isCapturing, setIsCapturing] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -76,27 +87,28 @@ export default function CameraCaptureScreen() {
       setIsCapturing(true);
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
       if (photo?.uri) {
+        // Forward ALL order context so SubmitPhoto always has what it needs
         navigation.replace("SubmitPhoto", {
           orderId,
           photoUri: photo.uri,
-          amount: route.params.amount,
-          pickupAddress: route.params.pickupAddress,
-          dropoffAddress: route.params.dropoffAddress,
-          itemType: route.params.itemType,
+          amount,
+          pickupAddress,
+          dropoffAddress,
+          itemType,
         });
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to take photo. Please try again.");
     } finally {
       setIsCapturing(false);
     }
   };
 
-  const MODES = ["CINEMATIC", "VIDEO", "PHOTO", "PORTRAIT", "PANO"] as const;
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
+
+      {/* Top controls */}
       <SafeAreaView style={styles.topBar}>
         <TouchableOpacity
           style={styles.topIconBtn}
@@ -126,7 +138,9 @@ export default function CameraCaptureScreen() {
         flash={flashMode}
       />
 
+      {/* Bottom controls */}
       <View style={styles.bottomBar}>
+        {/* Zoom pills */}
         <View style={styles.zoomRow}>
           {(["0.5", "1"] as const).map((z) => (
             <TouchableOpacity
@@ -149,6 +163,8 @@ export default function CameraCaptureScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Mode selector */}
         <View style={styles.modeRow}>
           {MODES.map((m) => (
             <TouchableOpacity
@@ -165,6 +181,8 @@ export default function CameraCaptureScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Shutter */}
         <TouchableOpacity
           style={[styles.shutterOuter, isCapturing && { opacity: 0.6 }]}
           onPress={handleCapture}
@@ -173,6 +191,7 @@ export default function CameraCaptureScreen() {
         >
           <View style={styles.shutterInner} />
         </TouchableOpacity>
+
         <View style={{ height: Platform.OS === "ios" ? 24 : 12 }} />
       </View>
     </View>

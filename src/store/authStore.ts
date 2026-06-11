@@ -119,3 +119,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 registerSessionExpiredHandler(() => {
   useAuthStore.getState().logout();
 });
+
+
