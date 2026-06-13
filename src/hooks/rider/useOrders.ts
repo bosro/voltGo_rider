@@ -185,11 +185,12 @@ export function useMarkDelivered() {
   return useMutation({
     mutationFn: ({ id, photoUri }: { id: string; photoUri: string }) => {
       const form = new FormData();
-      form.append("proof_photo", {
+      form.append("proof_of_delivery_image", {
         uri: photoUri,
         name: "proof_of_delivery.jpg",
         type: "image/jpeg",
       } as any);
+        console.log("FORM:", JSON.stringify(form));
       return ordersApi.markDelivered(id, form);
     },
     onSuccess: () => {

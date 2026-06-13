@@ -43,6 +43,7 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
@@ -60,6 +61,7 @@ import { Coordinates } from "../../lib/api";
 
 import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 import OfflinePill from "@/components/common/OfflinePill";
+import { Linking, Platform } from "react-native";
 
 type RouteParams = RouteProp<MainStackParamList, "ActiveDelivery">;
 
@@ -112,6 +114,28 @@ export default function ActiveDeliveryScreen() {
   // on every tiny GPS ping — only when moved ~100 m)
   const lastPolylineOriginRef = useRef<Coordinates>(riderCoord);
   const [polylineOrigin, setPolylineOrigin] = useState<Coordinates>(riderCoord);
+
+  const openNavigation = (destLat: number, destLng: number, label: string) => {
+    const destination = `${destLat},${destLng}`;
+
+    if (Platform.OS === "ios") {
+      // Opens Apple Maps in driving navigation mode
+      const url = `maps://app?daddr=${destination}&dirflg=d`;
+      Linking.canOpenURL(url).then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          // Fallback to Google Maps
+          Linking.openURL(
+            `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`,
+          );
+        }
+      });
+    } else {
+      // Opens Google Maps on Android in navigation mode
+      Linking.openURL(`google.navigation:q=${destination}&mode=d`);
+    }
+  };
 
   useEffect(() => {
     if (!currentCoords) return;
@@ -204,13 +228,13 @@ export default function ActiveDeliveryScreen() {
 
   // ── CTA handlers ─────────────────────────────────────────────────────────
   const handleArrived = async () => {
-    setOptimisticStatus("arrived"); // flip CTA immediately
     try {
       await markArrived(orderId);
+      // Force the CTA to flip regardless of what backend returns
+      setOptimisticStatus("collected");
     } catch {
-      setOptimisticStatus(null); // revert on failure
+      setOptimisticStatus(null);
     }
-    // socket will eventually set the real status; optimistic just bridges the gap
   };
 
   useEffect(() => {
@@ -385,6 +409,27 @@ export default function ActiveDeliveryScreen() {
           <Text style={styles.price}>GHS {Number(price).toFixed(2)}</Text>
         </View>
 
+        <TouchableOpacity
+          style={styles.navBtn}
+          onPress={() => {
+            const dest = enRoute ? pickupCoord : dropoffCoord;
+            const label = enRoute ? pickupAddress : dropoffAddress;
+            openNavigation(dest.latitude, dest.longitude, label);
+          }}
+          activeOpacity={0.88}
+        >
+          <View style={styles.navBtnContent}>
+            <Image
+              source={require("../../../assets/icons/navigation.png")}
+              style={styles.navIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.navBtnText}>
+              {enRoute ? "Navigate to Pickup" : "Navigate to Dropoff"}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Single CTA — label and action change with status */}
         <TouchableOpacity
           style={styles.actionBtn}
@@ -549,5 +594,32 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-SemiBold",
     fontSize: Typography.base,
     color: Colors.white,
+  },
+  navBtn: {
+    backgroundColor: "#F0F4F8",
+    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  navBtnText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
+    color: Colors.navy,
+  },
+
+  navBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  navIcon: {
+    width: 18,
+    height: 18,
+    marginRight: 8,
   },
 });
