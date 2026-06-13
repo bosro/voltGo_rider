@@ -76,6 +76,7 @@ export function useToggleStatus() {
     onError: (_err, is_online) => {
       // Rollback optimistic update
       setOnline(!is_online);
+      updateRider({ is_online: !is_online });
     },
 
     onSettled: () => setTogglingStatus(false),

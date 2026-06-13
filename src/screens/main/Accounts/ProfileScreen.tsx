@@ -22,6 +22,8 @@ const userProfileSvg = `<svg width="18" height="20" viewBox="0 0 18 20" fill="no
 const emailSvg = `<svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="18" height="14" rx="2" stroke="#5A6478" stroke-width="1.5" fill="none"/><path d="M1 4L10 9L19 4" stroke="#5A6478" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 const phoneSvg = `<svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="1" width="14" height="18" rx="3" stroke="#5A6478" stroke-width="1.5" fill="none"/><circle cx="9" cy="16" r="1" fill="#5A6478"/></svg>`;
 
+const defaultAvatar = require('../../../../assets/images/default-avatar.webp');
+
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { rider, updateRider } = useAuthStore();
@@ -84,10 +86,11 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.avatarWrap}>
           <View style={styles.avatarCircle}>
-            {avatarUri
-              ? <Image source={{ uri: avatarUri }} style={styles.avatar} />
-              : <Text style={styles.avatarEmoji}>👤</Text>
-            }
+          <Image
+  source={avatarUri ? { uri: avatarUri } : defaultAvatar}
+  style={styles.avatar}
+  resizeMode="cover"
+/>
           </View>
           <TouchableOpacity style={styles.cameraBtn} onPress={handlePickAvatar} activeOpacity={0.85}>
             <SvgXml xml={cameraEditSvg} width={16} height={14} />

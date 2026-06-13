@@ -8,11 +8,13 @@ import {
   Animated,
   Dimensions,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { GhostButton } from "../../../components/common";
 import { Colors, Typography, Radius } from "../../../theme";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useToggleStatus } from "@/hooks/rider/useRider";
 
 const { height } = Dimensions.get("window");
 
@@ -22,6 +24,8 @@ export default function RiderOfflineScreen() {
   const navigation = useNavigation<any>();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  const { mutateAsync: toggleStatus, isPending } = useToggleStatus();
 
   useEffect(() => {
     Animated.parallel([
@@ -39,7 +43,14 @@ export default function RiderOfflineScreen() {
     ]).start();
   }, []);
 
-  const handleGoOnline = () => navigation.goBack();
+  const handleGoOnline = async () => {
+    try {
+      await toggleStatus(true);
+    } catch {
+      // best-effort; store/socket will reconcile
+    }
+    navigation.goBack();
+  };
   const handleStayOffline = () => navigation.navigate("MainTabs");
 
   return (
@@ -92,11 +103,16 @@ export default function RiderOfflineScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.goOnlineBtn}
+          style={[styles.goOnlineBtn, isPending && { opacity: 0.7 }]}
           onPress={handleGoOnline}
           activeOpacity={0.88}
+          disabled={isPending}
         >
-          <Text style={styles.goOnlineText}>Go back online</Text>
+          {isPending ? (
+            <ActivityIndicator color={Colors.textPrimary} />
+          ) : (
+            <Text style={styles.goOnlineText}>Go back online</Text>
+          )}
         </TouchableOpacity>
         <GhostButton
           label="Stay offline"

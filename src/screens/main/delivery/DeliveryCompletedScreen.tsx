@@ -235,3 +235,5 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: Colors.divider },
   footer: { paddingHorizontal: 24, paddingBottom: 32 },
 });
+
+

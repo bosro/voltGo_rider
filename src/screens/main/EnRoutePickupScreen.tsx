@@ -20,14 +20,14 @@ import { useMarkArrived } from '../../hooks/rider/useOrders';
 import PowerCircleIcon from '../../../assets/icons/power-circle.svg';
 import UserAvatarIcon from '../../../assets/icons/user-avatar.svg';
 
-type RouteParams = RouteProp<MainStackParamList, 'EnRoutePickup'>;
+// type RouteParams = RouteProp<MainStackParamList, 'EnRoutePickup'>;
 
 const DEFAULT_PICKUP  = { latitude: 5.5968, longitude: -0.1869 };
 const DEFAULT_DROPOFF = { latitude: 5.6502, longitude: -0.187 };
 
 export default function EnRoutePickupScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute<RouteParams>();
+  const route = useRoute<any>();
   const mapRef = useRef<MapView>(null);
 
   const {
@@ -225,3 +225,5 @@ const styles = StyleSheet.create({
   },
   actionBtnText: { fontFamily: 'Poppins-SemiBold', fontSize: Typography.base, color: Colors.white },
 });
+
+

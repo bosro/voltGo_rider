@@ -128,3 +128,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold', fontSize: Typography.base, color: Colors.white,
   },
 });
+

@@ -49,6 +49,7 @@ import ActivitiesActive from "../../assets/icons/tab-activities-active.svg";
 import AccountDefault from "../../assets/icons/tab-account-default.svg";
 import AccountActive from "../../assets/icons/tab-account-active.svg";
 import { useLocationTracking } from "@/hooks/rider/useLocationTracking";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ── Tab config ─────────────────────────────────────────────────────
 const TABS: {
@@ -56,16 +57,23 @@ const TABS: {
   IconDefault: React.FC<SvgProps>;
   IconActive: React.FC<SvgProps>;
 }[] = [
-  { name: "HomeMap",     IconDefault: HomeDefault,       IconActive: HomeActive },
-  { name: "Wallet",      IconDefault: WalletDefault,     IconActive: WalletActive },
-  { name: "Activities",  IconDefault: ActivitiesDefault, IconActive: ActivitiesActive },
-  { name: "Account",     IconDefault: AccountDefault,    IconActive: AccountActive },
+  { name: "HomeMap", IconDefault: HomeDefault, IconActive: HomeActive },
+  { name: "Wallet", IconDefault: WalletDefault, IconActive: WalletActive },
+  {
+    name: "Activities",
+    IconDefault: ActivitiesDefault,
+    IconActive: ActivitiesActive,
+  },
+  { name: "Account", IconDefault: AccountDefault, IconActive: AccountActive },
 ];
 
 // ── BottomTabBar ───────────────────────────────────────────────────
 export function BottomTabBar({ state, navigation }: any) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={tabStyles.bar}>
+    <View
+      style={[tabStyles.bar, { paddingBottom: Math.max(insets.bottom, 18) }]}
+    >
       <View style={tabStyles.inner}>
         {TABS.map((tab, index) => {
           const isActive = state.index === index;
@@ -91,20 +99,19 @@ const tabStyles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderTopColor: "#ECEEF2",
-    paddingBottom: Platform.OS === "ios" ? 20 : 8,
-    paddingTop: 10,
-    height: Platform.OS === "ios" ? 72 : 58,
-    alignItems: "center",
+    paddingTop: 14,
   },
   inner: {
     flexDirection: "row",
-    width: "80%",
-    justifyContent: "space-between",
+    width: "100%",
+    justifyContent: "space-around",
+    paddingHorizontal: 8,
   },
   tab: {
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 12,
+     paddingVertical: 8, 
   },
 });
 
@@ -117,10 +124,10 @@ function MainTabs() {
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <BottomTabBar {...props} />}
     >
-      <Tab.Screen name="HomeMap"     component={HomeMapScreen} />
-      <Tab.Screen name="Wallet"      component={WalletScreen} />
-      <Tab.Screen name="Activities"  component={ActivitiesScreen} />
-      <Tab.Screen name="Account"     component={AccountScreen} />
+      <Tab.Screen name="HomeMap" component={HomeMapScreen} />
+      <Tab.Screen name="Wallet" component={WalletScreen} />
+      <Tab.Screen name="Activities" component={ActivitiesScreen} />
+      <Tab.Screen name="Account" component={AccountScreen} />
     </Tab.Navigator>
   );
 }

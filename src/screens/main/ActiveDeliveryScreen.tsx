@@ -27,25 +27,41 @@
  *  - order:cancelled socket event clears activeOrder → useEffect navigates away
  */
 
-import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar,
-  Animated, ActivityIndicator, Alert,
-} from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Colors, Typography, Radius, Shadow } from '../../theme';
-import { MainStackParamList } from '../../navigation/types';
-import { useRoutePolyline } from '../../utils/useRoutePolyline';
-import CUSTOM_MAP_STYLE from '../../utils/mapStyle';
-import { useMarkArrived, useMarkCollected, useMarkInTransit } from '../../hooks/rider/useOrders';
-import { useRiderStore } from '../../store/riderStore';
-import { Coordinates } from '../../lib/api';
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  StatusBar,
+  Animated,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { Colors, Typography, Radius, Shadow } from "../../theme";
+import { MainStackParamList } from "../../navigation/types";
+import { useRoutePolyline } from "../../utils/useRoutePolyline";
+import CUSTOM_MAP_STYLE from "../../utils/mapStyle";
+import {
+  useMarkArrived,
+  useMarkCollected,
+  useMarkInTransit,
+} from "../../hooks/rider/useOrders";
+import { useRiderStore } from "../../store/riderStore";
+import { Coordinates } from "../../lib/api";
 
-import UserAvatarIcon from '../../../assets/icons/user-avatar.svg';
-import OfflinePill from '@/components/common/OfflinePill';
+import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
+import OfflinePill from "@/components/common/OfflinePill";
 
-type RouteParams = RouteProp<MainStackParamList, 'ActiveDelivery'>;
+type RouteParams = RouteProp<MainStackParamList, "ActiveDelivery">;
 
 const ACCRA_FALLBACK: Coordinates = { latitude: 5.5968, longitude: -0.1869 };
 
@@ -59,22 +75,34 @@ function hasMovedSignificantly(a: Coordinates, b: Coordinates): boolean {
 
 /** Whether the given status means "heading to pickup" */
 function isEnRoute(status: string): boolean {
-  return ['accepted', 'assigned', 'rider_arriving', 'arrived'].includes(status);
+  return ["accepted", "assigned", "rider_arriving", "arrived"].includes(status);
 }
 
 export default function ActiveDeliveryScreen() {
   const navigation = useNavigation<any>();
-  const route      = useRoute<RouteParams>();
-  const mapRef     = useRef<MapView>(null);
+  const route = useRoute<RouteParams>();
+  const mapRef = useRef<MapView>(null);
 
   const {
-    orderId, customerName, customerPhone,
-    pickupAddress, dropoffAddress, itemType, price, pickupEta,
-    pickupCoords, dropoffCoords,
+    orderId,
+    customerName,
+    customerPhone,
+    pickupAddress,
+    dropoffAddress,
+    itemType,
+    price,
+    pickupEta,
+    pickupCoords,
+    dropoffCoords,
   } = route.params as any;
 
-  const pickupCoord  = (pickupCoords  as Coordinates) ?? ACCRA_FALLBACK;
-  const dropoffCoord = (dropoffCoords as Coordinates) ?? { latitude: 5.6502, longitude: -0.187 };
+  const pickupCoord = (pickupCoords as Coordinates) ?? ACCRA_FALLBACK;
+  const dropoffCoord = (dropoffCoords as Coordinates) ?? {
+    latitude: 5.6502,
+    longitude: -0.187,
+  };
+
+  const hasSeenActiveOrderRef = useRef(false);
 
   // ── Store state ───────────────────────────────────────────────────────────
   const { currentCoords, activeOrder, clearDelivery } = useRiderStore();
@@ -93,69 +121,103 @@ export default function ActiveDeliveryScreen() {
     }
   }, [currentCoords]);
 
+  const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
+
   // Derive current status — prefer store (kept fresh by socket) over params
-  const currentStatus = activeOrder?.status ?? 'accepted';
+  const currentStatus = optimisticStatus ?? activeOrder?.status ?? "accepted";
   const enRoute = isEnRoute(currentStatus);
 
   // ── Polyline ──────────────────────────────────────────────────────────────
   const polylineOriginCoord = enRoute ? polylineOrigin : pickupCoord;
-  const polylineDest        = enRoute ? pickupCoord    : dropoffCoord;
+  const polylineDest = enRoute ? pickupCoord : dropoffCoord;
 
   const { coords: routeCoords, etaMinutes } = useRoutePolyline({
-    origin:      polylineOriginCoord,
+    origin: polylineOriginCoord,
     destination: polylineDest,
-    mode:        'TWO_WHEELER',
+    mode: "TWO_WHEELER",
   });
 
   useEffect(() => {
     if (!mapRef.current) return;
-    const points = routeCoords.length > 0
-      ? routeCoords
-      : [polylineOriginCoord, polylineDest];
+    const points =
+      routeCoords.length > 0
+        ? routeCoords
+        : [polylineOriginCoord, polylineDest];
     mapRef.current.fitToCoordinates(points, {
       edgePadding: { top: 80, right: 60, bottom: 360, left: 60 },
       animated: true,
     });
   }, [routeCoords]);
 
-  const initialRegion = useMemo(() => ({
-    latitude:       (riderCoord.latitude  + pickupCoord.latitude)  / 2,
-    longitude:      (riderCoord.longitude + pickupCoord.longitude) / 2,
-    latitudeDelta:  Math.abs(riderCoord.latitude  - pickupCoord.latitude)  * 4 + 0.02,
-    longitudeDelta: Math.abs(riderCoord.longitude - pickupCoord.longitude) * 4 + 0.02,
-  }), []);
+  const initialRegion = useMemo(
+    () => ({
+      latitude: (riderCoord.latitude + pickupCoord.latitude) / 2,
+      longitude: (riderCoord.longitude + pickupCoord.longitude) / 2,
+      latitudeDelta:
+        Math.abs(riderCoord.latitude - pickupCoord.latitude) * 4 + 0.02,
+      longitudeDelta:
+        Math.abs(riderCoord.longitude - pickupCoord.longitude) * 4 + 0.02,
+    }),
+    [],
+  );
 
   // ── Animations ────────────────────────────────────────────────────────────
   const slideUp = useRef(new Animated.Value(40)).current;
-  const fadeIn  = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn,  { toValue: 1, duration: 280, useNativeDriver: true }),
-      Animated.spring(slideUp, { toValue: 0, tension: 62, friction: 11, useNativeDriver: true }),
+      Animated.timing(fadeIn, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUp, {
+        toValue: 0,
+        tension: 62,
+        friction: 11,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
-  const { mutateAsync: markArrived,   isPending: isArriving  } = useMarkArrived();
-  const { mutateAsync: markCollected, isPending: isCollecting } = useMarkCollected();
-  const { mutateAsync: markInTransit                         } = useMarkInTransit();
+  const { mutateAsync: markArrived, isPending: isArriving } = useMarkArrived();
+  const { mutateAsync: markCollected, isPending: isCollecting } =
+    useMarkCollected();
+  const { mutateAsync: markInTransit } = useMarkInTransit();
 
   // ── Socket-driven navigation ──────────────────────────────────────────────
   // When order:cancelled fires, useSocket clears activeOrder → navigate away
   useEffect(() => {
-    if (!activeOrder) {
-      Alert.alert('Order Cancelled', 'The customer cancelled this delivery.');
-      navigation.replace('MainTabs');
+    // If we just got a real order, mark it
+    if (activeOrder) {
+      hasSeenActiveOrderRef.current = true;
+      return;
+    }
+    // Only navigate away if we HAD an order and it disappeared (cancelled/completed)
+    if (hasSeenActiveOrderRef.current) {
+      Alert.alert("Order Cancelled", "The customer cancelled this delivery.");
+      navigation.replace("MainTabs");
     }
   }, [activeOrder]);
 
   // ── CTA handlers ─────────────────────────────────────────────────────────
   const handleArrived = async () => {
-    try { await markArrived(orderId); } catch { /* best-effort; store updated by socket */ }
-    // After marking arrived the status socket event will flip the card CTA
-    // from "I have arrived" to "Package collected". Nothing else to navigate.
+    setOptimisticStatus("arrived"); // flip CTA immediately
+    try {
+      await markArrived(orderId);
+    } catch {
+      setOptimisticStatus(null); // revert on failure
+    }
+    // socket will eventually set the real status; optimistic just bridges the gap
   };
+
+  useEffect(() => {
+    if (activeOrder?.status) {
+      setOptimisticStatus(null); // real status arrived, clear optimistic
+    }
+  }, [activeOrder?.status]);
 
   const handleCollected = useCallback(async () => {
     try {
@@ -165,9 +227,9 @@ export default function ActiveDeliveryScreen() {
     } catch {
       // Proceed to camera regardless
     }
-    navigation.navigate('CameraCapture', {
+    navigation.navigate("CameraCapture", {
       orderId,
-      amount:         price,
+      amount: price,
       pickupAddress,
       dropoffAddress,
       itemType,
@@ -175,15 +237,19 @@ export default function ActiveDeliveryScreen() {
   }, [orderId, price, pickupAddress, dropoffAddress, itemType]);
 
   // ── Determine what the CTA should say ────────────────────────────────────
-  const ctaLabel   = enRoute ? 'I have arrived' : 'Package collected';
-  const ctaAction  = enRoute ? handleArrived     : handleCollected;
-  const ctaBusy    = enRoute ? isArriving         : isCollecting;
+  const ctaLabel = enRoute ? "I have arrived" : "Package collected";
+  const ctaAction = enRoute ? handleArrived : handleCollected;
+  const ctaBusy = enRoute ? isArriving : isCollecting;
 
   const displayEta = etaMinutes ?? pickupEta ?? null;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <StatusBar
+        barStyle="dark-content"
+        translucent
+        backgroundColor="transparent"
+      />
 
       <MapView
         ref={mapRef}
@@ -202,14 +268,18 @@ export default function ActiveDeliveryScreen() {
       >
         {/* Route polyline */}
         {routeCoords.length > 0 && (
-          <Polyline coordinates={routeCoords} strokeColor={Colors.navy} strokeWidth={4} />
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor={Colors.navy}
+            strokeWidth={4}
+          />
         )}
 
         {/* Rider position — updates as currentCoords changes */}
         <Marker
           coordinate={riderCoord}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={!!currentCoords}  // track changes while we have live GPS
+          tracksViewChanges={!!currentCoords} // track changes while we have live GPS
         >
           <View style={styles.riderDotOuter}>
             <View style={styles.riderDot} />
@@ -217,14 +287,22 @@ export default function ActiveDeliveryScreen() {
         </Marker>
 
         {/* Pickup */}
-        <Marker coordinate={pickupCoord} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+        <Marker
+          coordinate={pickupCoord}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+        >
           <View style={styles.pickupDotOuter}>
             <View style={styles.pickupDot} />
           </View>
         </Marker>
 
         {/* Drop-off */}
-        <Marker coordinate={dropoffCoord} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false}>
+        <Marker
+          coordinate={dropoffCoord}
+          anchor={{ x: 0.5, y: 1 }}
+          tracksViewChanges={false}
+        >
           <View style={styles.dropoffPin}>
             <View style={styles.dropoffCircle} />
             <View style={styles.dropoffTail} />
@@ -235,8 +313,11 @@ export default function ActiveDeliveryScreen() {
         {displayEta != null && (
           <Marker
             coordinate={{
-              latitude:  (polylineOriginCoord.latitude  + polylineDest.latitude)  / 2 + 0.005,
-              longitude: (polylineOriginCoord.longitude + polylineDest.longitude) / 2,
+              latitude:
+                (polylineOriginCoord.latitude + polylineDest.latitude) / 2 +
+                0.005,
+              longitude:
+                (polylineOriginCoord.longitude + polylineDest.longitude) / 2,
             }}
             anchor={{ x: 0.5, y: 0.5 }}
             tracksViewChanges={false}
@@ -252,7 +333,10 @@ export default function ActiveDeliveryScreen() {
       <OfflinePill />
 
       <Animated.View
-        style={[styles.card, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}
+        style={[
+          styles.card,
+          { opacity: fadeIn, transform: [{ translateY: slideUp }] },
+        ]}
       >
         {/* Customer row */}
         <View style={styles.customerRow}>
@@ -278,15 +362,17 @@ export default function ActiveDeliveryScreen() {
               <View style={styles.routeTextWrap}>
                 <Text style={styles.routeLabel}>
                   {enRoute
-                    ? `Pick-up${displayEta != null ? ` (${displayEta} min away)` : ''}`
-                    : 'Pick-up'}
+                    ? `Pick-up${displayEta != null ? ` (${displayEta} min away)` : ""}`
+                    : "Pick-up"}
                 </Text>
                 <Text style={styles.routeValue}>{pickupAddress}</Text>
                 <Text style={styles.routeValue}>{itemType}</Text>
               </View>
             </View>
             <View style={styles.dashedLine}>
-              {Array.from({ length: 4 }).map((_, i) => <View key={i} style={styles.dashSeg} />)}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <View key={i} style={styles.dashSeg} />
+              ))}
             </View>
             <View style={styles.routeRow}>
               <Text style={styles.routeEmoji}>📍</Text>
@@ -306,10 +392,11 @@ export default function ActiveDeliveryScreen() {
           activeOpacity={0.88}
           disabled={ctaBusy}
         >
-          {ctaBusy
-            ? <ActivityIndicator color={Colors.white} />
-            : <Text style={styles.actionBtnText}>{ctaLabel}</Text>
-          }
+          {ctaBusy ? (
+            <ActivityIndicator color={Colors.white} />
+          ) : (
+            <Text style={styles.actionBtnText}>{ctaLabel}</Text>
+          )}
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -320,79 +407,147 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
 
   riderDotOuter: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: 'rgba(255,200,0,0.3)',
-    alignItems: 'center', justifyContent: 'center',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,200,0,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   riderDot: {
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: '#FFCC00', borderWidth: 2.5, borderColor: Colors.white,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#FFCC00",
+    borderWidth: 2.5,
+    borderColor: Colors.white,
   },
   pickupDotOuter: {
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: 'rgba(74,144,226,0.25)',
-    alignItems: 'center', justifyContent: 'center',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(74,144,226,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   pickupDot: {
-    width: 13, height: 13, borderRadius: 6.5,
-    backgroundColor: '#4A90E2', borderWidth: 2.5, borderColor: Colors.white,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    backgroundColor: "#4A90E2",
+    borderWidth: 2.5,
+    borderColor: Colors.white,
   },
-  dropoffPin: { alignItems: 'center' },
-  dropoffCircle: { width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.navy },
+  dropoffPin: { alignItems: "center" },
+  dropoffCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.navy,
+  },
   dropoffTail: {
-    width: 3, height: 8, backgroundColor: Colors.navy,
-    borderBottomLeftRadius: 2, borderBottomRightRadius: 2,
+    width: 3,
+    height: 8,
+    backgroundColor: Colors.navy,
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
   },
   etaBadge: {
-    backgroundColor: Colors.navy, borderRadius: Radius.full,
-    paddingHorizontal: 12, paddingVertical: 5,
+    backgroundColor: Colors.navy,
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  etaText: { fontFamily: 'Poppins-SemiBold', fontSize: 12, color: Colors.white },
+  etaText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 12,
+    color: Colors.white,
+  },
 
   card: {
-    position: 'absolute', bottom: 72, left: 12, right: 12,
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14,
-    borderWidth: 1, borderColor: Colors.border, ...Shadow.modal,
+    position: "absolute",
+    bottom: 72,
+    left: 12,
+    right: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.modal,
   },
-  customerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
+  customerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 10,
+  },
   avatarCircle: {
-    width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.navy,
-    alignItems: 'center', justifyContent: 'center',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: Colors.navy,
+    alignItems: "center",
+    justifyContent: "center",
   },
   customerInfo: { flex: 1 },
   customerName: {
-    fontFamily: 'Poppins-Bold', fontSize: Typography.md, color: Colors.textPrimary,
+    fontFamily: "Poppins-Bold",
+    fontSize: Typography.md,
+    color: Colors.textPrimary,
   },
   customerPhone: {
-    fontFamily: 'Poppins-Regular', fontSize: Typography.sm, color: Colors.textSecondary,
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.sm,
+    color: Colors.textSecondary,
   },
-  timer: { fontFamily: 'Poppins-Bold', fontSize: Typography.lg, color: Colors.primary },
+  timer: {
+    fontFamily: "Poppins-Bold",
+    fontSize: Typography.lg,
+    color: Colors.primary,
+  },
   divider: { height: 1, backgroundColor: Colors.divider, marginBottom: 12 },
-  routeSection: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
+  routeSection: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 14,
+  },
   routeLeft: { flex: 1 },
-  routeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  routeRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   routeEmoji: { fontSize: 18, marginTop: 1 },
   routeTextWrap: { flex: 1 },
   routeLabel: {
-    fontFamily: 'Poppins-SemiBold', fontSize: Typography.sm,
-    color: Colors.textPrimary, lineHeight: 18,
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.sm,
+    color: Colors.textPrimary,
+    lineHeight: 18,
   },
   routeValue: {
-    fontFamily: 'Poppins-Regular', fontSize: Typography.sm,
-    color: Colors.textSecondary, lineHeight: 17,
+    fontFamily: "Poppins-Regular",
+    fontSize: Typography.sm,
+    color: Colors.textSecondary,
+    lineHeight: 17,
   },
   dashedLine: { marginLeft: 28, paddingVertical: 4, gap: 3 },
   dashSeg: { width: 1.5, height: 5, backgroundColor: Colors.border },
   price: {
-    fontFamily: 'HelveticaNeue-CondensedBold', fontSize: Typography.md,
-    color: Colors.textPrimary, alignSelf: 'center',
+    fontFamily: "HelveticaNeue-CondensedBold",
+    fontSize: Typography.md,
+    color: Colors.textPrimary,
+    alignSelf: "center",
   },
   actionBtn: {
-    backgroundColor: Colors.navy, borderRadius: Radius.lg,
-    paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.navy,
+    borderRadius: Radius.lg,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionBtnText: {
-    fontFamily: 'Poppins-SemiBold', fontSize: Typography.base, color: Colors.white,
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
+    color: Colors.white,
   },
 });

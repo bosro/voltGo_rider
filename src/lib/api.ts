@@ -203,7 +203,11 @@ export const authApi = {
   forgotPassword: (phone: string) =>
     api.post("/rider/auth/forgot-password", { phone }),
   resetPassword: (phone: string, otp: string, password: string) =>
-    api.post("/rider/auth/reset-password", { phone, otp, password }),
+    api.post("/rider/auth/reset-password", {
+      phone,
+      otp,
+      new_password: password,
+    }),
   refreshToken: (refresh_token: string) =>
     api.post<TokenPair>("/token/refresh", { refresh_token }),
   revokeToken: (refresh_token: string) =>
@@ -350,6 +354,7 @@ export interface Order {
   dropoff_coords?: Coordinates;
   created_at: string;
   updated_at: string;
+  scheduled_at?: string | null;
 }
 
 export type OrderOffer = Order;

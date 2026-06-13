@@ -166,7 +166,7 @@ export default function OTPScreen() {
           { opacity: fadeIn, transform: [{ translateY: slideUp }] },
         ]}
       >
-        <Text style={styles.heading}>Enter the 6-digit code</Text>
+        <Text style={styles.heading}>Enter the 5-digit code</Text>
         <Text style={styles.subtitle}>
           Check your SMS or Whatsapp for the code
         </Text>

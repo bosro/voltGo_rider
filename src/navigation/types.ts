@@ -131,3 +131,4 @@ export type MainStackParamList = {
   Support: undefined;
   Settings: undefined;
 };
+

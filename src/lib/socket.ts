@@ -28,6 +28,11 @@ import { getAccessToken } from "./api";
 export interface SocketOrderAssigned {
   order_id: string;
   customer_id: string;
+  customer_name: string; // ← add
+  customer_phone: string; // ← add
+  item_type: string; // ← add
+  price: number; // ← add
+  pickup_eta?: number; // ← add
   pickup_address: string;
   pickup_lat: number;
   pickup_lng: number;
@@ -156,6 +161,16 @@ class SocketService {
 
   emit(event: string, payload?: unknown): void {
     this.socket?.emit(event, payload);
+  }
+
+  onConnectionChange(onConnect: () => void, onDisconnect: () => void): void {
+    this.socket?.on("connect", onConnect);
+    this.socket?.on("disconnect", onDisconnect);
+  }
+
+  offConnectionChange(onConnect: () => void, onDisconnect: () => void): void {
+    this.socket?.off("connect", onConnect);
+    this.socket?.off("disconnect", onDisconnect);
   }
 
   get isConnected(): boolean {

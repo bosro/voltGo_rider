@@ -12,11 +12,7 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import {
-  useNavigation,
-  useRoute,
-  RouteProp,
-} from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NavyButton, GhostButton } from "../../components/common";
 import { Colors, Typography, Radius } from "../../theme";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,7 +22,7 @@ import { RootStackParamList } from "../../navigation/types";
 type ResetPasswordRouteProp = RouteProp<RootStackParamList, "ResetPassword">;
 
 // ── OTP digit boxes (reuses same pattern as your OTPScreen) ──────────────────
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 5;
 
 export default function ResetPasswordScreen() {
   const navigation = useNavigation<any>();
@@ -98,7 +94,10 @@ export default function ResetPasswordScreen() {
       setResendCooldown(60);
       setOtp(Array(OTP_LENGTH).fill(""));
       inputRefs.current[0]?.focus();
-      Alert.alert("Code sent", "A new reset code has been sent to your number.");
+      Alert.alert(
+        "Code sent",
+        "A new reset code has been sent to your number.",
+      );
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? "Could not resend. Try again.";
@@ -109,7 +108,7 @@ export default function ResetPasswordScreen() {
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleReset = async () => {
     if (otpValue.length !== OTP_LENGTH) {
-      Alert.alert("Error", "Please enter the 6-digit code.");
+      Alert.alert("Error", "Please enter the 5-digit code.");
       return;
     }
     if (password.length < 6) {
@@ -143,7 +142,10 @@ export default function ResetPasswordScreen() {
   };
 
   const isSubmitDisabled =
-    isPending || otpValue.length !== OTP_LENGTH || !password || !confirmPassword;
+    isPending ||
+    otpValue.length !== OTP_LENGTH ||
+    !password ||
+    !confirmPassword;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -169,7 +171,7 @@ export default function ResetPasswordScreen() {
         >
           <Text style={styles.heading}>Reset password</Text>
           <Text style={styles.subtitle}>
-            Enter the 6-digit code sent to{"\n"}
+            Enter the 5-digit code sent to{"\n"}
             <Text style={styles.phoneHighlight}>+233 {phone.slice(1)}</Text>
           </Text>
 
@@ -178,7 +180,9 @@ export default function ResetPasswordScreen() {
             {otp.map((digit, i) => (
               <TextInput
                 key={i}
-                ref={(ref) => {inputRefs.current[i] = ref}}
+                ref={(ref) => {
+                  inputRefs.current[i] = ref;
+                }}
                 style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
                 value={digit}
                 onChangeText={(text) => handleOtpChange(text, i)}
@@ -244,7 +248,9 @@ export default function ResetPasswordScreen() {
           {/* Password strength hints */}
           {password.length > 0 && (
             <View style={{ marginTop: -8, marginBottom: 12 }}>
-              <Text style={[styles.hint, password.length >= 8 && styles.hintOk]}>
+              <Text
+                style={[styles.hint, password.length >= 8 && styles.hintOk]}
+              >
                 {password.length >= 8 ? "✓" : "✗"} At least 8 characters
               </Text>
               <Text
@@ -362,12 +368,13 @@ const styles = StyleSheet.create({
   // OTP
   otpRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
+     gap: 8,  
     marginBottom: 16,
   },
   otpBox: {
-    width: 48,
-    height: 56,
+    width: 44, // ← slightly narrower
+    height: 52,
     borderRadius: Radius.lg,
     backgroundColor: Colors.inputBg,
     borderWidth: 1.5,

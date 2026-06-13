@@ -51,6 +51,9 @@ import { useOrderOffers } from "../../hooks/rider/useOrders";
 import { useToggleStatus } from "../../hooks/rider/useRider";
 import { socketService } from "../../lib/socket";
 import { useRiderStore } from "../../store/riderStore";
+import EmotoSvg from "../../../assets/icons/emoto.svg";
+import BicycleSvg from "../../../assets/icons/bicycle.svg"; // or bicycle 6.svg
+import { useAuthStore } from "@/store/authStore";
 
 const DEFAULT_REGION = {
   latitude: 5.603717,
@@ -62,16 +65,22 @@ const DEFAULT_REGION = {
 export default function HomeMapScreen() {
   const navigation = useNavigation<any>();
   const mapRef = useRef<MapView>(null);
+  const { rider } = useAuthStore();
+  const vehicleType = rider?.vehicle_type ?? "e-motorcycle";
+
+  const { mutate: toggleStatus } = useToggleStatus();
+
+  const [isSocketConnected, setIsSocketConnected] = useState(
+    socketService.isConnected,
+  );
 
   const {
     isOnline,
     isTogglingStatus,
     pendingOffer,
     setPendingOffer,
-    currentCoords,   // written by useLocationTracking in MainNavigator
+    currentCoords, // written by useLocationTracking in MainNavigator
   } = useRiderStore();
-
-  const { mutate: toggleStatus } = useToggleStatus();
 
   // Track whether we've already centred the map on the rider's first fix
   const hascentredRef = useRef(false);
@@ -90,6 +99,20 @@ export default function HomeMapScreen() {
     );
   }, [currentCoords]);
 
+  useEffect(() => {
+    const onConnect = () => setIsSocketConnected(true);
+    const onDisconnect = () => setIsSocketConnected(false);
+
+    socketService.onConnectionChange(onConnect, onDisconnect);
+
+    // Sync immediately in case state changed before this effect ran
+    setIsSocketConnected(socketService.isConnected);
+
+    return () => {
+      socketService.offConnectionChange(onConnect, onDisconnect);
+    };
+  }, []); // empty deps — socketService is a singleton, never changes
+
   // REST fallback — keeps working even when socket drops.
   // The hook internally does nothing when isOnline is false.
   useOrderOffers();
@@ -100,15 +123,15 @@ export default function HomeMapScreen() {
   useEffect(() => {
     if (!pendingOffer) return;
     navigation.navigate("DeliveryRequest", {
-      orderId:       pendingOffer.id,
-      customerName:  pendingOffer.customer_name,
+      orderId: pendingOffer.id,
+      customerName: pendingOffer.customer_name,
       customerPhone: pendingOffer.customer_phone,
       pickupAddress: pendingOffer.pickup_address,
-      dropoffAddress:pendingOffer.dropoff_address,
-      itemType:      pendingOffer.item_type,
-      price:         pendingOffer.price,
-      pickupEta:     pendingOffer.pickup_eta ?? 6,
-      pickupCoords:  pendingOffer.pickup_coords,
+      dropoffAddress: pendingOffer.dropoff_address,
+      itemType: pendingOffer.item_type,
+      price: pendingOffer.price,
+      pickupEta: pendingOffer.pickup_eta ?? 6,
+      pickupCoords: pendingOffer.pickup_coords,
       dropoffCoords: pendingOffer.dropoff_coords,
     });
     // Clear immediately so re-renders don't re-navigate
@@ -117,9 +140,19 @@ export default function HomeMapScreen() {
 
   const handleToggle = () => {
     if (isTogglingStatus) return;
-    const next = !isOnline;
-    toggleStatus(next);
-    if (!next) navigation.navigate("RiderOffline");
+
+    if (isOnline) {
+      // Call the API first, navigate only on success
+      toggleStatus(false, {
+        onSuccess: () => navigation.navigate("RiderOffline"),
+        onError: () => {
+          // Status already rolled back in the mutation's onError
+          // Optionally show a toast here
+        },
+      });
+    } else {
+      toggleStatus(true);
+    }
   };
 
   return (
@@ -148,14 +181,14 @@ export default function HomeMapScreen() {
           <Marker
             coordinate={currentCoords}
             anchor={{ x: 0.5, y: 0.5 }}
-            // tracksViewChanges=true until the first fix is confirmed,
-            // then false to stop unnecessary re-renders on every GPS ping.
-            // The map already re-centres via animateToRegion; the marker
-            // position updates on the next render when coordinate prop changes.
             tracksViewChanges={!hascentredRef.current}
           >
             <View style={styles.riderMarker}>
-              <Text style={styles.riderEmoji}>🛵</Text>
+              {vehicleType === "bicycle" ? (
+                <BicycleSvg width={28} height={28} />
+              ) : (
+                <EmotoSvg width={28} height={28} />
+              )}
             </View>
           </Marker>
         )}
@@ -179,7 +212,7 @@ export default function HomeMapScreen() {
             <PowerCircleIcon width={18} height={18} />
           )}
           <Text style={styles.pillText}>
-            {isOnline ? "Go offline" : "Go online"}
+            {isOnline ? "You're online" : "You're offline"}
           </Text>
         </TouchableOpacity>
 
@@ -187,11 +220,7 @@ export default function HomeMapScreen() {
         <View
           style={[
             styles.socketDot,
-            {
-              backgroundColor: socketService.isConnected
-                ? "#4CD964"
-                : "#FF3B30",
-            },
+            { backgroundColor: isSocketConnected ? "#4CD964" : "#FF3B30" },
           ]}
         />
       </SafeAreaView>
@@ -200,7 +229,7 @@ export default function HomeMapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, overflow: "hidden" },
 
   topOverlay: {
     position: "absolute",
@@ -228,7 +257,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  pillOffline: { backgroundColor: Colors.textSecondary },
+  pillOffline: { backgroundColor: "#EF4444" },
   pillText: {
     fontFamily: "Poppins-SemiBold",
     fontSize: Typography.base,
@@ -244,9 +273,9 @@ const styles = StyleSheet.create({
   },
 
   riderMarker: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.white,
     alignItems: "center",
     justifyContent: "center",
