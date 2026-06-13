@@ -134,3 +134,5 @@ export function useSocket() {
     };
   }, [isAuthenticated, rider?.id]);
 }
+
+

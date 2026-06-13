@@ -1,0 +1,18 @@
+<!-- accra_route.gpx -->
+<?xml version="1.0"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="5.5968" lon="-0.1869"><time>2026-01-01T00:00:00Z</time></trkpt>
+      <trkpt lat="5.5985" lon="-0.1860"><time>2026-01-01T00:00:10Z</time></trkpt>
+      <trkpt lat="5.6002" lon="-0.1851"><time>2026-01-01T00:00:20Z</time></trkpt>
+      <trkpt lat="5.6020" lon="-0.1843"><time>2026-01-01T00:00:30Z</time></trkpt>
+      <trkpt lat="5.6050" lon="-0.1835"><time>2026-01-01T00:00:40Z</time></trkpt>
+      <trkpt lat="5.6080" lon="-0.1828"><time>2026-01-01T00:00:50Z</time></trkpt>
+      <trkpt lat="5.6110" lon="-0.1820"><time>2026-01-01T00:01:00Z</time></trkpt>
+      <trkpt lat="5.6140" lon="-0.1812"><time>2026-01-01T00:01:10Z</time></trkpt>
+      <trkpt lat="5.6170" lon="-0.1805"><time>2026-01-01T00:01:20Z</time></trkpt>
+      <trkpt lat="5.6200" lon="-0.1800"><time>2026-01-01T00:01:30Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

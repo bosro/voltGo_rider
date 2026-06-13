@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   bg: { ...StyleSheet.absoluteFill },
   logo: {
-    width: 220,
-    height: 100,
+    width: 420,
+    height: 300,
   },
 });

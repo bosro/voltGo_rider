@@ -16,6 +16,7 @@ import { CommonActions } from '@react-navigation/native';
 import { Colors, Typography, Radius } from '../../../theme';
 import { clearAuthToken } from '../../../utils/authStorage';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { useAuthStore } from '@/store/authStore';
 
 
 const ABOUT_ITEMS = [
@@ -32,24 +33,30 @@ export default function SettingsScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [logoutLoading,      setLogoutLoading]      = useState(false);
 
+  const { logout } = useAuthStore();
+  
   useEffect(() => {
     Animated.timing(fadeIn, { toValue: 1, duration: 350, useNativeDriver: true }).start();
   }, []);
 
-  const handleLogoutConfirm = async () => {
-    setLogoutLoading(true);
-    await clearAuthToken();
-    setLogoutLoading(false);
-    setLogoutModalVisible(false);
-    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Splash' }] }));
-  };
+const handleLogoutConfirm = async () => {
+  setLogoutLoading(true);
+  await logout(); // ← handles clearTokens + socket disconnect + clears store
+  setLogoutLoading(false);
+  setLogoutModalVisible(false);
+  navigation.dispatch(
+    CommonActions.reset({ index: 0, routes: [{ name: "PhoneEntry" }] })
+  );
+};
 
-  const handleDeleteConfirm = async () => {
-    // TODO: wire up delete-account API call
-    await clearAuthToken();
-    setDeleteModalVisible(false);
-    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Splash' }] }));
-  };
+const handleDeleteConfirm = async () => {
+  // TODO: call delete-account API here first
+  await logout();
+  setDeleteModalVisible(false);
+  navigation.dispatch(
+    CommonActions.reset({ index: 0, routes: [{ name: "PhoneEntry" }] })
+  );
+};
 
   return (
     <SafeAreaView style={styles.safe}>
