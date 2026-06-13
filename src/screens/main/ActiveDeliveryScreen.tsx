@@ -406,7 +406,7 @@ export default function ActiveDeliveryScreen() {
               </View>
             </View>
           </View>
-          <Text style={styles.price}>GHS {Number(price).toFixed(2)}</Text>
+          <Text style={styles.price}>GHS {Number(price || 0).toFixed(2)}</Text>
         </View>
 
         <TouchableOpacity
