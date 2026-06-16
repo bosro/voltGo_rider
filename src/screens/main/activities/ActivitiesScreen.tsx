@@ -41,6 +41,17 @@ function formatOrderDate(iso: string) {
   );
 }
 
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    assigned:   "Assigned",
+    accepted:   "Accepted",
+    arrived:    "Arrived",
+    collected:  "Collected",
+    in_transit: "In Transit",
+  };
+  return map[status] ?? status;
+}
+
 function EmptyState({ tab }: { tab: "Past" | "Upcoming" }) {
   const isPast = tab === "Past";
   return (
@@ -66,10 +77,25 @@ export default function ActivitiesScreen() {
   const { data: rawOrders, isLoading, isError, refetch } = useMyOrders();
 
   const orders = Array.isArray(rawOrders) ? rawOrders : [];
-  const completedOrders = orders.filter(
+
+  // "Past" tab — orders that have reached a terminal state
+  const pastOrders = orders.filter(
     (o) => o.status === "delivered" || o.status === "cancelled",
   );
-  const sections = groupOrdersByMonth(completedOrders);
+
+  // "Upcoming" tab — orders still in progress
+  const activeOrders = orders.filter(
+    (o) =>
+      o.status === "assigned"   ||
+      o.status === "accepted"   ||
+      o.status === "arrived"    ||
+      o.status === "collected"  ||
+      o.status === "in_transit",
+  );
+
+  const sections = groupOrdersByMonth(
+    activeTab === "Past" ? pastOrders : activeOrders,
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -120,19 +146,42 @@ export default function ActivitiesScreen() {
         </View>
       ) : (
         <SectionList
-          sections={activeTab === "Past" ? sections : []}
+          sections={sections}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.row}
               onPress={() =>
                 navigation.navigate("ActivityDetail", {
-                  activityId: item.id,
-                  destination: item.dropoff_address,
-                  date: formatOrderDate(item.created_at),
-                  amount: item.price,
-                  status:
-                    item.status === "delivered" ? "completed" : "cancelled",
+                  // ─── IDs & status ───────────────────────────────
+                  activityId:      item.id,
+                  status:          item.status === "delivered"
+                                     ? "completed"
+                                     : item.status === "cancelled"
+                                     ? "cancelled"
+                                     : "active",
+
+                  // ─── Addresses ──────────────────────────────────
+                  destination:     item.dropoff_address,
+                  pickupAddress:   item.pickup_address,
+
+                  // ─── Date & amount ──────────────────────────────
+                  date:            formatOrderDate(item.created_at),
+                  amount:          parseFloat(item.price_ghs ?? "0"),  // ← was item.price (undefined)
+
+                  // ─── Customer (nested object in API response) ───
+                  customerName:    item.customer?.full_name  ?? "Customer",
+                  customerPhone:   item.customer?.phone      ?? "—",
+
+                  // ─── Order details ──────────────────────────────
+                  itemDescription: item.item_description     ?? "—",   // ← was item.item_type (undefined)
+                  paymentMethod:   item.payment_method       ?? "—",
+                  vehicleType:     item.vehicle_type         ?? "—",
+
+                  // ─── Optional — null when API hasn't set them ───
+                  distanceKm:      item.distance_km          ?? null,
+                  durationMins:    item.estimated_duration_mins ?? null,
+                  proofPhotoUrl:   item.proof_of_delivery_url  ?? null,
                 })
               }
               activeOpacity={0.75}
@@ -148,11 +197,15 @@ export default function ActivitiesScreen() {
                 style={[
                   styles.amount,
                   item.status === "cancelled" && { color: Colors.errorRed },
+                  item.status !== "delivered" &&
+                    item.status !== "cancelled" && { color: Colors.navy },
                 ]}
               >
                 {item.status === "cancelled"
                   ? "Cancelled"
-                  : `GHS ${(item.price ?? 0).toFixed(2)}`}
+                  : item.status === "delivered"
+                  ? `GHS ${parseFloat(item.price_ghs ?? "0").toFixed(2)}`
+                  : statusLabel(item.status)}
               </Text>
             </TouchableOpacity>
           )}
@@ -287,4 +340,3 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 });
-

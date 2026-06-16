@@ -124,15 +124,15 @@ export default function HomeMapScreen() {
     if (!pendingOffer) return;
     navigation.navigate("DeliveryRequest", {
       orderId: pendingOffer.id,
-      customerName: pendingOffer.customer_name,
-      customerPhone: pendingOffer.customer_phone,
+      customerName: pendingOffer.customer?.full_name ?? "",
+      customerPhone: pendingOffer.customer?.phone ?? "",
       pickupAddress: pendingOffer.pickup_address,
       dropoffAddress: pendingOffer.dropoff_address,
-      itemType: pendingOffer.item_type,
-      price: pendingOffer.price,
-      pickupEta: pendingOffer.pickup_eta ?? 6,
-      pickupCoords: pendingOffer.pickup_coords,
-      dropoffCoords: pendingOffer.dropoff_coords,
+      itemType: pendingOffer.item_description,
+      price: parseFloat(pendingOffer.price_ghs ?? "0"), // ← parse string to number here
+      pickupEta: (pendingOffer as any).pickup_eta ?? 6,
+      pickupCoords: (pendingOffer as any).pickup_coords,
+      dropoffCoords: (pendingOffer as any).dropoff_coords,
     });
     // Clear immediately so re-renders don't re-navigate
     setPendingOffer(null);
@@ -287,5 +287,3 @@ const styles = StyleSheet.create({
   },
   riderEmoji: { fontSize: 24 },
 });
-
-

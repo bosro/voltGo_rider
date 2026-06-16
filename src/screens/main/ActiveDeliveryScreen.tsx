@@ -115,6 +115,10 @@ export default function ActiveDeliveryScreen() {
   const lastPolylineOriginRef = useRef<Coordinates>(riderCoord);
   const [polylineOrigin, setPolylineOrigin] = useState<Coordinates>(riderCoord);
 
+  const [isMinimized, setIsMinimized] = useState(false);
+  const cardAnim = useRef(new Animated.Value(0)).current; // 0 = full, 1 = minimized
+  const fabScale = useRef(new Animated.Value(0)).current;
+
   const openNavigation = (destLat: number, destLng: number, label: string) => {
     const destination = `${destLat},${destLng}`;
 
@@ -136,6 +140,8 @@ export default function ActiveDeliveryScreen() {
       Linking.openURL(`google.navigation:q=${destination}&mode=d`);
     }
   };
+
+  const deliveryCompletedRef = useRef(false);
 
   useEffect(() => {
     if (!currentCoords) return;
@@ -214,13 +220,14 @@ export default function ActiveDeliveryScreen() {
   // ── Socket-driven navigation ──────────────────────────────────────────────
   // When order:cancelled fires, useSocket clears activeOrder → navigate away
   useEffect(() => {
-    // If we just got a real order, mark it
     if (activeOrder) {
       hasSeenActiveOrderRef.current = true;
       return;
     }
-    // Only navigate away if we HAD an order and it disappeared (cancelled/completed)
-    if (hasSeenActiveOrderRef.current) {
+    // Only show "cancelled" alert if the delivery wasn't completed
+    // Check: if activeOrder is null but we're still on this screen AND
+    // it wasn't a successful delivery navigation
+    if (hasSeenActiveOrderRef.current && !deliveryCompletedRef.current) {
       Alert.alert("Order Cancelled", "The customer cancelled this delivery.");
       navigation.replace("MainTabs");
     }
@@ -246,14 +253,14 @@ export default function ActiveDeliveryScreen() {
   const handleCollected = useCallback(async () => {
     try {
       await markCollected(orderId);
-      // Fire in-transit in background — don't block the UX
       markInTransit(orderId).catch(() => {});
     } catch {
-      // Proceed to camera regardless
+      // proceed regardless
     }
+    deliveryCompletedRef.current = true; // ← mark as intentional navigation
     navigation.navigate("CameraCapture", {
       orderId,
-      amount: price,
+      amount: parseFloat(String(price ?? "0")),
       pickupAddress,
       dropoffAddress,
       itemType,
@@ -266,6 +273,44 @@ export default function ActiveDeliveryScreen() {
   const ctaBusy = enRoute ? isArriving : isCollecting;
 
   const displayEta = etaMinutes ?? pickupEta ?? null;
+
+  const minimizeCard = () => {
+    Animated.parallel([
+      Animated.timing(cardAnim, {
+        toValue: 1,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.spring(fabScale, {
+        toValue: 1,
+        tension: 60,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setIsMinimized(true));
+  };
+
+  const expandCard = () => {
+    setIsMinimized(false);
+    Animated.parallel([
+      Animated.timing(cardAnim, {
+        toValue: 0,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fabScale, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Card translateY: slides off bottom when minimized
+  const cardTranslateY = cardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 320], // slides card down off screen
+  });
 
   return (
     <View style={styles.container}>
@@ -359,9 +404,23 @@ export default function ActiveDeliveryScreen() {
       <Animated.View
         style={[
           styles.card,
-          { opacity: fadeIn, transform: [{ translateY: slideUp }] },
+          {
+            opacity: fadeIn,
+            transform: [
+              { translateY: slideUp },
+              { translateY: cardTranslateY }, // ← add this
+            ],
+          },
         ]}
       >
+        {/* Add minimize button at top-right of card */}
+        <TouchableOpacity
+          style={styles.minimizeBtn}
+          onPress={minimizeCard}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.minimizeBtnText}>—</Text>
+        </TouchableOpacity>
         {/* Customer row */}
         <View style={styles.customerRow}>
           <View style={styles.avatarCircle}>
@@ -441,6 +500,28 @@ export default function ActiveDeliveryScreen() {
             <ActivityIndicator color={Colors.white} />
           ) : (
             <Text style={styles.actionBtnText}>{ctaLabel}</Text>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.fab,
+          {
+            transform: [{ scale: fabScale }],
+            opacity: fabScale,
+          },
+        ]}
+        pointerEvents={isMinimized ? "auto" : "none"}
+      >
+        <TouchableOpacity
+          onPress={expandCard}
+          activeOpacity={0.85}
+          style={styles.fabInner}
+        >
+          <Text style={styles.fabEmoji}>📦</Text>
+          {displayEta != null && (
+            <Text style={styles.fabEta}>{displayEta}m</Text>
           )}
         </TouchableOpacity>
       </Animated.View>
@@ -621,5 +702,49 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     marginRight: 8,
+  },
+  minimizeBtn: {
+    position: "absolute",
+    top: 12,
+    right: 14,
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  minimizeBtnText: {
+    fontSize: 20,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 36,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.navy,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 20,
+  },
+  fabInner: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fabEmoji: {
+    fontSize: 22,
+  },
+  fabEta: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 10,
+    color: Colors.white,
+    marginTop: 1,
   },
 });

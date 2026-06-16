@@ -49,13 +49,17 @@ export function useSocket() {
       const offer: Order = {
         id: payload.order_id,
         status: "assigned",
-        customer_name: payload.customer_name ?? "",
-        customer_phone: payload.customer_phone ?? "",
+        customer_id: payload.customer_id ?? "",
+        rider_id: "",
+        customer: {
+          id: payload.customer_id ?? "",
+          full_name: payload.customer_name ?? "",
+          phone: payload.customer_phone ?? "",
+        },
         pickup_address: payload.pickup_address,
         dropoff_address: payload.dropoff_address,
-        item_type: payload.item_type ?? "",
-        price: payload.price ?? 0,
-        pickup_eta: payload.pickup_eta,
+        item_description: payload.item_type ?? "",
+        price_ghs: String(payload.price ?? "0"), // ← was: price: payload.price ?? 0
         pickup_coords: {
           latitude: payload.pickup_lat,
           longitude: payload.pickup_lng,
@@ -64,6 +68,27 @@ export function useSocket() {
           latitude: payload.dropoff_lat,
           longitude: payload.dropoff_lng,
         },
+        // fill required Order fields with safe defaults
+        pickup_lat: String(payload.pickup_lat),
+        pickup_lng: String(payload.pickup_lng),
+        dropoff_lat: String(payload.dropoff_lat),
+        dropoff_lng: String(payload.dropoff_lng),
+        vehicle_type: "motorcycle",
+        payment_method: "bundle",
+        credits_used: 0,
+        distance_km: payload.distance_km ?? null,
+        estimated_duration_mins: null,
+        proof_of_delivery_url: null,
+        scheduled_at: null,
+        assigned_at: null,
+        collected_at: null,
+        delivered_at: null,
+        cancelled_at: null,
+        cancellation_reason: null,
+        package_type: null,
+        special_instructions: null,
+        stops: [],
+        saved_payment_method: null,
         created_at: payload.timestamp,
         updated_at: payload.timestamp,
       };
@@ -134,5 +159,3 @@ export function useSocket() {
     };
   }, [isAuthenticated, rider?.id]);
 }
-
-

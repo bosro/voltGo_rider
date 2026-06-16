@@ -17,10 +17,16 @@ import { socketService } from "../../lib/socket";
 import { useAuthStore } from "../../store/authStore";
 import { useRiderStore } from "../../store/riderStore";
 import { RIDER_QUERY_KEYS } from "./useRider";
+import * as FileSystem from "expo-file-system/legacy";
+
+// function getOfferPollInterval(isOnline: boolean): number | false {
+//   if (!isOnline) return false;
+//   return socketService.isConnected ? 30_000 : 5_000;
+// }
 
 function getOfferPollInterval(isOnline: boolean): number | false {
   if (!isOnline) return false;
-  return socketService.isConnected ? 30_000 : 5_000;
+  return 5_000; // ← always 5s, don't depend on broken socket
 }
 
 // ── Offers (socket-primary, REST fallback) ────────────────────────────────────
@@ -54,8 +60,12 @@ export function useMyOrders() {
     queryKey: RIDER_QUERY_KEYS.myOrders,
     queryFn: async () => {
       const res = await ordersApi.getMyOrders();
-      const raw = res.data?.data;
-      return Array.isArray(raw) ? raw : [];
+      const raw = res.data?.data as any;
+      // API returns { total, page, pages, items: Order[] }
+      if (raw && Array.isArray(raw.items)) return raw.items as Order[];
+      // Fallback if API ever returns a bare array
+      if (Array.isArray(raw)) return raw as Order[];
+      return [] as Order[];
     },
     enabled: isAuthenticated,
     staleTime: 2 * 60 * 1_000,
@@ -183,15 +193,14 @@ export function useMarkDelivered() {
   const { clearDelivery } = useRiderStore();
 
   return useMutation({
-    mutationFn: ({ id, photoUri }: { id: string; photoUri: string }) => {
-      const form = new FormData();
-      form.append("proof_of_delivery_image", {
-        uri: photoUri,
-        name: "proof_of_delivery.jpg",
-        type: "image/jpeg",
-      } as any);
-        console.log("FORM:", JSON.stringify(form));
-      return ordersApi.markDelivered(id, form);
+    mutationFn: async ({ id, photoUri }: { id: string; photoUri: string }) => {
+      const base64 = await FileSystem.readAsStringAsync(photoUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      return ordersApi.markDelivered(id, {
+        proof_of_delivery_image: `data:image/jpeg;base64,${base64}`,
+      });
     },
     onSuccess: () => {
       clearDelivery();
@@ -200,7 +209,3 @@ export function useMarkDelivered() {
     },
   });
 }
-
-
-
-

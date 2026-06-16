@@ -245,10 +245,9 @@ export const ordersApi = {
     api.post<{ data: Order }>(`/rider/orders/${id}/collected`),
   markInTransit: (id: string) =>
     api.post<{ data: Order }>(`/rider/orders/${id}/in-transit`),
-  markDelivered: (id: string, formData: FormData) =>
-    api.post<{ data: Order }>(`/rider/orders/${id}/delivered`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
+ markDelivered: (id: string, body: { proof_of_delivery_image: string }) =>
+  api.post<{ data: Order }>(`/rider/orders/${id}/delivered`, body),
+
 };
 
 export const paymentApi = {
@@ -270,12 +269,19 @@ export interface TokenPair {
 }
 
 export interface LoginResponse {
+  status: number;
+  message: string;
   data: {
-    access_token: string;
-    refresh_token: string;
-    rider: RiderProfile;
+    token: string;           // API returns "token", not "access_token"
+    refreshToken: string;    // API returns "refreshToken", not "refresh_token"
+    id: string;
+    full_name: string;
+    phone: string;
+    kyc_status: string;
+    phone_verified: boolean;
   };
 }
+
 
 export interface VerifyPhoneResponse {
   data: {
@@ -343,18 +349,55 @@ export type OrderStatus =
 export interface Order {
   id: string;
   status: OrderStatus;
-  customer_name: string;
-  customer_phone: string;
+  customer_id: string;
+  rider_id: string;
+  customer: {
+    id: string;
+    full_name: string;
+    phone: string;
+  };
   pickup_address: string;
+  pickup_lat: string;
+  pickup_lng: string;
   dropoff_address: string;
-  item_type: string;
-  price: number;
-  pickup_eta?: number;
-  pickup_coords?: Coordinates;
-  dropoff_coords?: Coordinates;
+  dropoff_lat: string;
+  dropoff_lng: string;
+  item_description: string;
+  package_type: string | null;
+  vehicle_type: string;
+  special_instructions: string | null;
+  payment_method: string;
+  price_ghs: string;
+  credits_used: number;
+  distance_km: number | null;
+  estimated_duration_mins: number | null;
+  proof_of_delivery_url: string | null;
+  scheduled_at: string | null;
+  assigned_at: string | null;
+  collected_at: string | null;
+  delivered_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
   created_at: string;
   updated_at: string;
-  scheduled_at?: string | null;
+  stops: any[];
+  saved_payment_method: any | null;
+
+  // ── Navigation-only extras (set by socket handler, not REST) ──
+  pickup_coords?: { latitude: number; longitude: number };
+  dropoff_coords?: { latitude: number; longitude: number };
+  pickup_eta?: number;
+  // customer_name/phone shortcuts used before customer object is populated
+  customer_name?: string;
+  customer_phone?: string;
+  item_type?: string;
+}
+
+export interface PaginatedOrders {
+  total: number;
+  page: number;
+  pages: number;
+  items: Order[];
 }
 
 export type OrderOffer = Order;
@@ -375,6 +418,14 @@ export interface AddPaymentMethodPayload {
   account_name: string;
   provider?: string;
 }
+
+
+
+
+
+
+
+
 
 
 

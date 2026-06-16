@@ -7,45 +7,86 @@ import {
   StatusBar,
   ScrollView,
   Image,
-  Dimensions,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Colors, Typography, Radius, Shadow } from "@/theme";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const { width } = Dimensions.get("window");
-
-const DEMO_DETAIL = {
-  orderId: "#ORD-20260520-001",
-  customerName: "Cephas Ntiamoah",
-  customerPhone: "0575 540 404",
-  itemType: "Parcel",
-  weight: "Light weight",
-  pickupAddress: "American House, Haatso",
-  dropoffAddress: "University of Ghana, Legon",
-  distance: "6.2 km",
-  duration: "18 min",
-  proofPhotoUri: null as string | null,
+ 
+// ── Param types ───────────────────────────────────────────────────
+type ActivityDetailParams = {
+  ActivityDetail: {
+    activityId: string;
+    destination: string;
+    pickupAddress: string;
+    date: string;
+    amount: number;
+    status: "completed" | "cancelled";
+    customerName: string;
+    customerPhone: string;
+    itemDescription: string;
+    paymentMethod: string;
+    vehicleType: string;
+    distanceKm: number | null;
+    durationMins: number | null;
+    proofPhotoUrl: string | null;
+  };
 };
-
+ 
+// ── Helpers ───────────────────────────────────────────────────────
+function formatPayment(method: string): string {
+  const map: Record<string, string> = {
+    bundle: "Bundle credits",
+    momo:   "Mobile Money",
+    card:   "Card",
+    cash:   "Cash",
+  };
+  return map[method] ?? method.charAt(0).toUpperCase() + method.slice(1);
+}
+ 
+function formatVehicle(v: string): string {
+  const map: Record<string, string> = {
+    motorcycle: "Motorcycle",
+    bicycle:    "Bicycle",
+    car:        "Car",
+    walking:    "Walking",
+  };
+  return map[v] ?? v;
+}
+ 
+// ── Screen ────────────────────────────────────────────────────────
 export default function ActivityDetailScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const route = useRoute<RouteProp<ActivityDetailParams, "ActivityDetail">>();
+ 
   const {
-    destination = "University of Ghana",
-    date = "20 May . 12:34",
-    amount = 24,
-    status = "completed",
-  } = route.params ?? {};
-
+    activityId,
+    destination,
+    pickupAddress,
+    date,
+    amount,
+    status,
+    customerName,
+    customerPhone,
+    itemDescription,
+    paymentMethod,
+    vehicleType,
+    distanceKm,
+    durationMins,
+    proofPhotoUrl,
+  } = route.params ?? ({} as any);
+ 
   const isCompleted = status === "completed";
-
+ 
+  const shortId = activityId
+    ? `#ORD-${activityId.slice(0, 8).toUpperCase()}`
+    : "—";
+ 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
-
+ 
+      {/* Header */}
       <View style={styles.header}>
-        {/* back-arrow.png — same file used in NotificationsScreen */}
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -59,12 +100,12 @@ export default function ActivityDetailScreen() {
         <Text style={styles.headerTitle}>Delivery Details</Text>
         <View style={{ width: 24 }} />
       </View>
-
+ 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* Status badge — check-badge.png / cancel-badge.png */}
+        {/* Status badge */}
         <View
           style={[
             styles.statusBadge,
@@ -83,124 +124,131 @@ export default function ActivityDetailScreen() {
           <Text
             style={[
               styles.statusText,
-              isCompleted
-                ? styles.statusTextCompleted
-                : styles.statusTextCancelled,
+              isCompleted ? styles.statusTextCompleted : styles.statusTextCancelled,
             ]}
           >
             {isCompleted ? "Completed" : "Cancelled"}
           </Text>
         </View>
-
-        {/* Map preview placeholder */}
+ 
+        {/* Map preview */}
         <View style={styles.mapPreview}>
-          {/* map-placeholder.png — optional decorative image */}
           <Image
             source={require("../../../../assets/images/map-bg.png")}
             style={styles.mapImage}
             resizeMode="cover"
           />
           <Text style={styles.mapHint}>
-            {DEMO_DETAIL.pickupAddress} → {DEMO_DETAIL.dropoffAddress}
+            {pickupAddress ?? "—"} → {destination ?? "—"}
           </Text>
         </View>
-
-        {/* Order info */}
+ 
+        {/* Order Info */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Order Info</Text>
-          <InfoRow label="Order ID" value={DEMO_DETAIL.orderId} />
-          <InfoRow label="Customer" value={DEMO_DETAIL.customerName} />
-          <InfoRow label="Phone" value={DEMO_DETAIL.customerPhone} />
-          <InfoRow label="Item type" value={DEMO_DETAIL.itemType} />
-          <InfoRow label="Weight" value={DEMO_DETAIL.weight} />
-          <InfoRow label="Date & time" value={date} />
+          <InfoRow label="Order ID"    value={shortId} />
+          <InfoRow label="Customer"    value={customerName  ?? "—"} />
+          <InfoRow label="Phone"       value={customerPhone ?? "—"} />
+          <InfoRow label="Item"        value={itemDescription ?? "—"} />
+          <InfoRow label="Vehicle"     value={formatVehicle(vehicleType ?? "")} />
+          <InfoRow label="Payment"     value={formatPayment(paymentMethod ?? "")} />
+          <InfoRow label="Date & time" value={date ?? "—"} />
         </View>
-
+ 
         {/* Route */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Route</Text>
-
+ 
           <View style={styles.routeRow}>
-            {/* parcel.png reused from DeliveryCompletedScreen */}
             <Image
               source={require("../../../../assets/icons/parcel.png")}
               style={styles.routeIcon}
               resizeMode="contain"
             />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.routeType}>Pick-up</Text>
-              <Text style={styles.routeAddress}>
-                {DEMO_DETAIL.pickupAddress}
-              </Text>
+              <Text style={styles.routeAddress}>{pickupAddress ?? "—"}</Text>
             </View>
           </View>
-
+ 
           <View style={styles.dashedLine}>
             {Array.from({ length: 4 }).map((_, i) => (
               <View key={i} style={styles.dashSeg} />
             ))}
           </View>
-
+ 
           <View style={styles.routeRow}>
-            {/* pin-dropoff.png reused from DeliveryCompletedScreen */}
             <Image
               source={require("../../../../assets/icons/pin-dropoff.png")}
               style={styles.routeIcon}
               resizeMode="contain"
             />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.routeType}>Drop-off</Text>
-              <Text style={styles.routeAddress}>
-                {DEMO_DETAIL.dropoffAddress}
+              <Text style={styles.routeAddress}>{destination ?? "—"}</Text>
+            </View>
+          </View>
+ 
+          {/* Distance / duration — only shown when the API provides them */}
+          {(distanceKm != null || durationMins != null) && (
+            <View style={styles.routeStats}>
+              {distanceKm != null && (
+                <View style={styles.routeStat}>
+                  <Text style={styles.routeStatValue}>
+                    {distanceKm.toFixed(1)} km
+                  </Text>
+                  <Text style={styles.routeStatLabel}>Distance</Text>
+                </View>
+              )}
+              {distanceKm != null && durationMins != null && (
+                <View style={styles.routeStatDivider} />
+              )}
+              {durationMins != null && (
+                <View style={styles.routeStat}>
+                  <Text style={styles.routeStatValue}>{durationMins} min</Text>
+                  <Text style={styles.routeStatLabel}>Duration</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+ 
+        {/* Earnings — only shown for completed orders */}
+        {isCompleted && (
+          <View style={[styles.infoCard, styles.earningsCard]}>
+            <View>
+              <Text style={styles.earningsLabel}>You earned</Text>
+              <Text style={styles.earningsAmount}>
+                GHS {(amount ?? 0).toFixed(2)}
               </Text>
             </View>
+            <Image
+              source={require("../../../../assets/icons/wallet.png")}
+              style={styles.walletIcon}
+              resizeMode="contain"
+            />
           </View>
-
-          <View style={styles.routeStats}>
-            <View style={styles.routeStat}>
-              <Text style={styles.routeStatValue}>{DEMO_DETAIL.distance}</Text>
-              <Text style={styles.routeStatLabel}>Distance</Text>
-            </View>
-            <View style={styles.routeStatDivider} />
-            <View style={styles.routeStat}>
-              <Text style={styles.routeStatValue}>{DEMO_DETAIL.duration}</Text>
-              <Text style={styles.routeStatLabel}>Duration</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Earnings */}
-        <View style={[styles.infoCard, styles.earningsCard]}>
-          <View>
-            <Text style={styles.earningsLabel}>You earned</Text>
-            <Text style={styles.earningsAmount}>GHS {amount}.00</Text>
-          </View>
-          {/* wallet.png — drop into assets/icons/ */}
-          <Image
-            source={require("../../../../assets/icons/wallet.png")}
-            style={styles.walletIcon}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Proof of delivery */}
-        {DEMO_DETAIL.proofPhotoUri && (
+        )}
+ 
+        {/* Proof of delivery — only shown when the API provides a URL */}
+        {!!proofPhotoUrl && (
           <View style={styles.infoCard}>
             <Text style={styles.cardTitle}>Proof of Delivery</Text>
             <Image
-              source={{ uri: DEMO_DETAIL.proofPhotoUri }}
+              source={{ uri: proofPhotoUrl }}
               style={styles.proofPhoto}
               resizeMode="cover"
             />
           </View>
         )}
-
+ 
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
+ 
+// ── InfoRow ───────────────────────────────────────────────────────
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={rowStyles.row}>
@@ -209,13 +257,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-
+ 
 const rowStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
   label: {
     fontFamily: "Poppins-Regular",
@@ -230,9 +280,10 @@ const rowStyles = StyleSheet.create({
     textAlign: "right",
   },
 });
-
+ 
+// ── Styles (unchanged from your original) ────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.offWhite },
+  safe: { flex: 1, backgroundColor: Colors.white },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -248,7 +299,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   scroll: { paddingHorizontal: 16, paddingTop: 16 },
-
+ 
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -265,7 +316,7 @@ const styles = StyleSheet.create({
   statusText: { fontFamily: "Poppins-SemiBold", fontSize: Typography.sm },
   statusTextCompleted: { color: Colors.trendUp },
   statusTextCancelled: { color: Colors.errorRed },
-
+ 
   mapPreview: {
     height: 140,
     backgroundColor: Colors.navy,
@@ -284,13 +335,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-
+ 
   infoCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.offWhite,
     borderRadius: Radius.lg,
     padding: 18,
     marginBottom: 12,
-    ...Shadow.card,
+    // ...Shadow.card,
   },
   cardTitle: {
     fontFamily: "Poppins-Bold",
@@ -298,7 +349,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: 12,
   },
-
+ 
   routeRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -337,7 +388,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   routeStatDivider: { width: 1, backgroundColor: Colors.divider },
-
+ 
   earningsCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -355,7 +406,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   walletIcon: { width: 36, height: 36 },
-
+ 
   proofPhoto: {
     width: "100%",
     height: 180,
@@ -363,5 +414,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
 
 

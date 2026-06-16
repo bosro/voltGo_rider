@@ -38,16 +38,17 @@ export default function SubmitPhotoScreen() {
   const { mutateAsync: markDelivered, isPending } = useMarkDelivered();
 
   const handleSubmit = async () => {
-    try {
-      await markDelivered({ id: orderId, photoUri });
-      navigation.replace('DeliveryCompleted', {
-        orderId, amount, pickupAddress, dropoffAddress, itemType,
-      });
-    } catch (err: any) {
-      const message = err?.response?.data?.message ?? 'Failed to submit delivery. Please retry.';
-      Alert.alert('Submission Error', message);
-    }
-  };
+  try {
+    await markDelivered({ id: orderId, photoUri });
+    navigation.replace('DeliveryCompleted', {
+      orderId, amount, pickupAddress, dropoffAddress, itemType,
+    });
+  } catch (err: any) {
+    console.log('DELIVERY SUBMIT ERROR:', JSON.stringify(err?.response?.data ?? err?.message ?? err, null, 2));
+    const message = err?.response?.data?.message ?? 'Failed to submit delivery. Please retry.';
+    Alert.alert('Submission Error', message);
+  }
+};
 
   const handleRetake = () => {
     // Pass full context so the camera → submit loop never loses order info
@@ -128,6 +129,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold', fontSize: Typography.base, color: Colors.white,
   },
 });
+
+
+
+
+
 
 
 

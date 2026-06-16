@@ -14,7 +14,6 @@ import { Colors, Typography, Radius, Shadow } from "../../../theme";
 import { SvgXml } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-
 const { height } = Dimensions.get("window");
 
 export default function DeliveryCompletedScreen() {
@@ -94,7 +93,9 @@ export default function DeliveryCompletedScreen() {
 
           <View style={styles.earningsCard}>
             <Text style={styles.earningsLabel}>You earned</Text>
-            <Text style={styles.earningsAmount}>GHS {amount}.00</Text>
+            <Text style={styles.earningsAmount}>
+              GHS {parseFloat(String(amount ?? 0)).toFixed(2)}
+            </Text>
             <Text style={styles.earningsNote}>Added to your wallet</Text>
           </View>
 
@@ -235,5 +236,3 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: Colors.divider },
   footer: { paddingHorizontal: 24, paddingBottom: 32 },
 });
-
-

@@ -121,11 +121,13 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
-      this.socket?.emit("connect_rider", {
-        riderId,
-        socketId: this.socket?.id,
-        timestamp: new Date().toISOString(),
-      });
+      setTimeout(() => {
+        this.socket?.emit("connect_rider", {
+          riderId,
+          socketId: this.socket?.id,
+          timestamp: new Date().toISOString(),
+        });
+      }, 500);
     });
 
     this.socket.on("connect_error", (err) => {
