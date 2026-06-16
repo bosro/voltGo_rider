@@ -124,7 +124,7 @@ export default function ActivityDetailScreen() {
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Image
-            source={require("../../../../assets/icons/back-arrow.png")}
+            source={require("../../../../assets/images/back-arrow.png")}
             style={styles.backArrow}
             resizeMode="contain"
           />
@@ -198,7 +198,7 @@ export default function ActivityDetailScreen() {
               <Image
                 source={
                   vehicleType === "bicycle"
-                    ? require("../../../../assets/images/bicycle_small.png")
+                    ? require("../../../../assets/images/bicycle-small.png")
                     : require("../../../../assets/images/emoto_small.png")
                 }
                 style={styles.vehicleImg}
@@ -239,7 +239,7 @@ export default function ActivityDetailScreen() {
           <View style={styles.routeRow}>
             <View style={styles.routeDotWrap}>
               <Image
-                source={require("../../../../assets/icons/pin-dropoff.png")}
+                source={require("../../../../assets/images/pin-dropoff.png")}
                 style={{ width: 18, height: 22 }}
                 resizeMode="contain"
               />

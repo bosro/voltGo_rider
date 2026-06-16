@@ -198,7 +198,7 @@ export default function ActivityDetailScreen() {
               <Image
                 source={
                   vehicleType === "bicycle"
-                    ? require("../../../../assets/images/bicycle_small.png")
+                    ? require("../../../../assets/images/bicycle-small.png")
                     : require("../../../../assets/images/emoto_small.png")
                 }
                 style={styles.vehicleImg}
