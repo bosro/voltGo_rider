@@ -1,238 +1,569 @@
-import React, { useEffect, useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
   StatusBar,
+  ScrollView,
   Animated,
-  Dimensions,
+  Platform,
   Image,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import { NavyButton, GhostButton } from "../../../components/common";
-import { Colors, Typography, Radius, Shadow } from "../../../theme";
-import { SvgXml } from "react-native-svg";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { Colors, Typography, Radius } from "@/theme";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const { height } = Dimensions.get("window");
+// ── Param types ───────────────────────────────────────────────────
+type ActivityDetailParams = {
+  ActivityDetail: {
+    activityId: string;
+    destination: string;
+    pickupAddress?: string;
+    date: string;
+    amount: number;
+    status: "completed" | "cancelled" | "active";
+    customerName?: string;
+    customerPhone?: string;
+    itemDescription?: string;
+    paymentMethod?: string;
+    vehicleType?: string;
+    distanceKm?: number | null;
+    durationMins?: number | null;
+    proofPhotoUrl?: string | null;
+    // true when navigating from DeliveryCompleted — back should go home
+    fromCompletion?: boolean;
+  };
+};
 
-export default function DeliveryCompletedScreen() {
+// ── Helpers ───────────────────────────────────────────────────────
+function formatPayment(method: string): string {
+  const map: Record<string, string> = {
+    bundle_credit: "Bundle Credits",
+    bundle:        "Bundle Credits",
+    momo:          "Mobile Money",
+    card:          "Card",
+    cash:          "Cash",
+  };
+  return map[method] ?? (method ? method.charAt(0).toUpperCase() + method.slice(1) : "—");
+}
+
+function formatVehicle(v: string): string {
+  const map: Record<string, string> = {
+    motorcycle:    "Motorcycle",
+    bicycle:       "Bicycle",
+    "e-motorcycle":"E-Moto",
+    car:           "Car",
+    walking:       "Walking",
+  };
+  return map[v] ?? (v || "—");
+}
+
+// ── Screen ────────────────────────────────────────────────────────
+export default function ActivityDetailScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const route = useRoute<RouteProp<ActivityDetailParams, "ActivityDetail">>();
+
   const {
-    orderId = "ord_001",
-    amount = 20,
-    pickupAddress = "American House",
-    dropoffAddress = "University of Ghana",
-    itemType = "Parcel",
-  } = route.params ?? {};
+    activityId,
+    destination,
+    pickupAddress,
+    date,
+    amount,
+    status,
+    customerName,
+    customerPhone,
+    itemDescription,
+    paymentMethod,
+    vehicleType,
+    distanceKm,
+    durationMins,
+    proofPhotoUrl,
+    fromCompletion,
+  } = route.params ?? ({} as any);
 
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  const checkCircleSvg = `<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="50" fill="#E8FFF2"/>
-  <circle cx="50" cy="50" r="36" fill="#4CD964" fill-opacity="0.25"/>
-  <circle cx="50" cy="50" r="24" fill="#4CD964"/>
-  <path d="M36 50L44 58L64 38" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
+  const fadeIn  = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }),
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(slideUp, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  const handleBackToHome = () =>
-    navigation.reset({ index: 0, routes: [{ name: "MainTabs" }] });
+  const isCompleted = status === "completed";
+  const isCancelled = status === "cancelled";
 
-  const handleViewDetails = () => {
-    navigation.navigate("ActivityDetail", {
-      activityId: orderId,
-      destination: dropoffAddress,
-      date: new Date().toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      amount,
-      status: "completed",
-    });
+  const shortId = activityId
+    ? `#${activityId.slice(-8).toUpperCase()}`
+    : "—";
+
+  // Back button: if we came from DeliveryCompleted (or there's nothing to go
+  // back to), reset to Activities tab. Otherwise just go back.
+  const handleBack = () => {
+    if (fromCompletion || navigation.getState()?.routes?.length <= 1) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "MainTabs", params: { screen: "Activities" } }],
+      });
+    } else {
+      navigation.navigate("MainTabs", { screen: "Activities" });
+    }
   };
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
 
-      <View style={styles.content}>
-        {/* Check circle — drop check-circle.png into assets/images/ */}
-        <Animated.View
-          style={[styles.checkWrap, { transform: [{ scale: scaleAnim }] }]}
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={handleBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <SvgXml xml={checkCircleSvg} width={100} height={100} />
-        </Animated.View>
-
-        <Animated.View
-          style={{ opacity: fadeAnim, alignItems: "center", width: "100%" }}
-        >
-          <Text style={styles.heading}>Delivery Complete!</Text>
-          <Text style={styles.subheading}>
-            Great job! The package was delivered successfully.
-          </Text>
-
-          <View style={styles.earningsCard}>
-            <Text style={styles.earningsLabel}>You earned</Text>
-            <Text style={styles.earningsAmount}>
-              GHS {parseFloat(String(amount ?? 0)).toFixed(2)}
-            </Text>
-            <Text style={styles.earningsNote}>Added to your wallet</Text>
-          </View>
-
-          <View style={styles.summaryCard}>
-            <SummaryRow icon="parcel" label="Item" value={itemType} />
-            <View style={styles.summaryDivider} />
-            <SummaryRow icon="pickup" label="From" value={pickupAddress} />
-            <View style={styles.summaryDivider} />
-            <SummaryRow icon="dropoff" label="To" value={dropoffAddress} />
-          </View>
-        </Animated.View>
+          <Image
+            source={require("../../../../assets/icons/back-arrow.png")}
+            style={styles.backArrow}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Delivery Details</Text>
+        <View style={{ width: 32 }} />
       </View>
 
-      <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
-        <NavyButton label="Back to Home" onPress={handleBackToHome} />
-        <GhostButton
-          label="View Details"
-          onPress={handleViewDetails}
-          style={{ marginTop: 10 }}
-        />
-      </Animated.View>
+      <Animated.ScrollView
+        style={{ opacity: fadeIn, transform: [{ translateY: slideUp }] }}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Status badge ─────────────────────────────────────── */}
+        <View
+          style={[
+            styles.statusBadge,
+            isCompleted ? styles.badgeCompleted :
+            isCancelled ? styles.badgeCancelled :
+            styles.badgeActive,
+          ]}
+        >
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor: isCompleted ? "#1A8A3C" :
+                                  isCancelled ? "#EF4444" :
+                                  "#1D4ED8",
+              },
+            ]}
+          />
+          <Text
+            style={[
+              styles.statusText,
+              {
+                color: isCompleted ? "#1A8A3C" :
+                        isCancelled ? "#EF4444" :
+                        "#1D4ED8",
+              },
+            ]}
+          >
+            {isCompleted ? "Completed" : isCancelled ? "Cancelled" : "Active"}
+          </Text>
+        </View>
+
+        {/* ── Earnings hero (completed only) ───────────────────── */}
+        {isCompleted && (
+          <View style={styles.amountHero}>
+            <Text style={styles.amountValue}>
+              GHS {(amount ?? 0).toFixed(2)}
+            </Text>
+            <Text style={styles.amountDate}>{date ?? "—"}</Text>
+          </View>
+        )}
+
+        {/* Cancelled / active — just show date + order ID */}
+        {!isCompleted && (
+          <View style={styles.amountHero}>
+            <Text style={[styles.amountValue, { fontSize: 22, color: Colors.textSecondary }]}>
+              {shortId}
+            </Text>
+            <Text style={styles.amountDate}>{date ?? "—"}</Text>
+          </View>
+        )}
+
+        {/* ── Vehicle chip + short ID ───────────────────────────── */}
+        <View style={styles.metaRow}>
+          {vehicleType ? (
+            <View style={styles.vehicleChip}>
+              <Image
+                source={
+                  vehicleType === "bicycle"
+                    ? require("../../../../assets/images/bicycle_small.png")
+                    : require("../../../../assets/images/emoto_small.png")
+                }
+                style={styles.vehicleImg}
+                resizeMode="contain"
+              />
+              <Text style={styles.vehicleLabel}>{formatVehicle(vehicleType)}</Text>
+            </View>
+          ) : <View />}
+          {isCompleted && (
+            <Text style={styles.deliveryId}>{shortId}</Text>
+          )}
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* ── Route ─────────────────────────────────────────────── */}
+        <SectionLabel label="Route" />
+        <View style={styles.routeCard}>
+          {/* Pickup */}
+          <View style={styles.routeRow}>
+            <View style={styles.routeDotWrap}>
+              <View style={styles.routeDotGreen} />
+            </View>
+            <View style={styles.routeTextWrap}>
+              <Text style={styles.routeLabel}>Pickup</Text>
+              <Text style={styles.routeValue}>{pickupAddress || "—"}</Text>
+            </View>
+          </View>
+
+          {/* Dashed connector */}
+          <View style={styles.routeConnector}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <View key={i} style={styles.dashSegment} />
+            ))}
+          </View>
+
+          {/* Dropoff */}
+          <View style={styles.routeRow}>
+            <View style={styles.routeDotWrap}>
+              <Image
+                source={require("../../../../assets/icons/pin-dropoff.png")}
+                style={{ width: 18, height: 22 }}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.routeTextWrap}>
+              <Text style={styles.routeLabel}>Drop-off</Text>
+              <Text style={styles.routeValue}>{destination || "—"}</Text>
+            </View>
+          </View>
+
+          {/* Distance / duration pills */}
+          {(distanceKm != null || durationMins != null) && (
+            <View style={styles.statsPill}>
+              {distanceKm != null && (
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{distanceKm.toFixed(1)} km</Text>
+                  <Text style={styles.statLabel}>Distance</Text>
+                </View>
+              )}
+              {distanceKm != null && durationMins != null && (
+                <View style={styles.statDivider} />
+              )}
+              {durationMins != null && (
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{durationMins} min</Text>
+                  <Text style={styles.statLabel}>Duration</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* ── Package ───────────────────────────────────────────── */}
+        <View style={styles.sectionGap} />
+        <SectionLabel label="Package" />
+        <View style={styles.detailCard}>
+          <DetailRow label="Item"        value={itemDescription || "Parcel"} />
+          <DetailRow label="Customer"    value={customerName    || "—"} />
+          <DetailRow label="Phone"       value={customerPhone   || "—"} last />
+        </View>
+
+        {/* ── Payment ───────────────────────────────────────────── */}
+        <View style={styles.sectionGap} />
+        <SectionLabel label="Payment" />
+        <View style={styles.paymentRow}>
+          <View style={styles.paymentIconCircle}>
+            <Text style={{ fontSize: 20 }}>💳</Text>
+          </View>
+          <Text style={styles.paymentLabel}>
+            {formatPayment(paymentMethod || "")}
+          </Text>
+          {isCompleted && (
+            <Text style={styles.paymentAmount}>
+              GHS {(amount ?? 0).toFixed(2)}
+            </Text>
+          )}
+        </View>
+
+        {/* ── Proof of delivery ─────────────────────────────────── */}
+        {!!proofPhotoUrl && (
+          <>
+            <View style={styles.sectionGap} />
+            <SectionLabel label="Proof of Delivery" />
+            <Image
+              source={{ uri: proofPhotoUrl }}
+              style={styles.proofPhoto}
+              resizeMode="cover"
+            />
+          </>
+        )}
+
+        <View style={{ height: 48 }} />
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
 
-// PNG map — drop these into assets/icons/
-const ROW_ICONS = {
-  parcel: require("../../../../assets/icons/parcel.png"),
-  pickup: require("../../../../assets/icons/pin-pickup.png"),
-  dropoff: require("../../../../assets/icons/pin-dropoff.png"),
-};
-
-function SummaryRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: keyof typeof ROW_ICONS;
-  label: string;
-  value: string;
-}) {
+// ── Sub-components ────────────────────────────────────────────────
+function SectionLabel({ label }: { label: string }) {
   return (
-    <View style={sumStyles.row}>
-      <Image
-        source={ROW_ICONS[icon]}
-        style={sumStyles.icon}
-        resizeMode="contain"
-      />
-      <Text style={sumStyles.label}>{label}</Text>
-      <Text style={sumStyles.value} numberOfLines={1}>
-        {value}
-      </Text>
+    <View style={sectionStyles.wrap}>
+      <Text style={sectionStyles.text}>{label}</Text>
+      <View style={sectionStyles.line} />
     </View>
   );
 }
 
-const sumStyles = StyleSheet.create({
-  row: {
+function DetailRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
+  return (
+    <View style={[detailStyles.row, !last && detailStyles.rowBorder]}>
+      <Text style={detailStyles.label}>{label}</Text>
+      <Text style={detailStyles.value} numberOfLines={2}>{value}</Text>
+    </View>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────
+const sectionStyles = StyleSheet.create({
+  wrap: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    gap: 10,
+    marginBottom: 14,
+    gap: 8,
   },
-  icon: { width: 22, height: 22 },
+  text: {
+    fontFamily: "HelveticaNeue-CondensedBold",
+    fontSize: 15,
+    color: Colors.navy,
+    flexShrink: 0,
+  },
+  line: { flex: 1, height: 1, backgroundColor: Colors.divider },
+});
+
+const detailStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.divider },
   label: {
     fontFamily: "Poppins-Regular",
-    fontSize: Typography.sm,
+    fontSize: 13,
     color: Colors.textMuted,
-    width: 48,
   },
   value: {
-    flex: 1,
     fontFamily: "Poppins-SemiBold",
-    fontSize: Typography.sm,
+    fontSize: 13,
     color: Colors.textPrimary,
     textAlign: "right",
+    flex: 1,
+    marginLeft: 16,
   },
 });
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  content: {
-    flex: 1,
+
+  header: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: height * 0.06,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 8 : 16,
+    paddingBottom: 14,
+    backgroundColor: Colors.white,
   },
-  checkWrap: { marginBottom: 24 },
-  checkImage: { width: 100, height: 100 },
-  heading: {
-    fontFamily: "HelveticaNeue-CondensedBold",
-    fontSize: 28,
-    color: Colors.textPrimary,
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backArrow: { width: 20, height: 18 },
+  headerTitle: {
+    flex: 1,
     textAlign: "center",
-    marginBottom: 8,
+    fontFamily: "HelveticaNeue-CondensedBold",
+    fontSize: 19,
+    color: Colors.textPrimary,
     letterSpacing: 0.2,
   },
-  subheading: {
-    fontFamily: "Poppins-Regular",
-    fontSize: Typography.base,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 28,
-  },
-  earningsCard: {
-    width: "100%",
-    backgroundColor: Colors.navy,
-    borderRadius: Radius.xl,
-    padding: 24,
+
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 },
+
+  // Status badge
+  statusBadge: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 20,
   },
-  earningsLabel: {
-    fontFamily: "Poppins-Regular",
-    fontSize: Typography.base,
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 4,
-  },
-  earningsAmount: {
+  badgeCompleted: { backgroundColor: "#EDFBF1" },
+  badgeCancelled: { backgroundColor: "#FEF2F2" },
+  badgeActive:    { backgroundColor: "#DBEAFE" },
+  statusDot:  { width: 7, height: 7, borderRadius: 4 },
+  statusText: { fontFamily: "Poppins-SemiBold", fontSize: 13 },
+
+  // Amount hero
+  amountHero:  { marginBottom: 16 },
+  amountValue: {
     fontFamily: "HelveticaNeue-CondensedBold",
     fontSize: 38,
-    color: Colors.primary,
-    marginBottom: 4,
+    color: Colors.textPrimary,
+    letterSpacing: 0.5,
   },
-  earningsNote: {
+  amountDate: {
     fontFamily: "Poppins-Regular",
-    fontSize: Typography.sm,
-    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
+    color: Colors.textMuted,
+    marginTop: 4,
   },
-  summaryCard: {
-    width: "100%",
-    backgroundColor: Colors.inputBg,
-    borderRadius: Radius.lg,
-    paddingHorizontal: 18,
+
+  // Meta row (vehicle chip + ID)
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  vehicleChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: "#EEEEEE",
+  },
+  vehicleImg:   { width: 36, height: 28 },
+  vehicleLabel: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 13,
+    color: Colors.textPrimary,
+  },
+  deliveryId: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+
+  divider: { height: 1, backgroundColor: Colors.divider, marginBottom: 24 },
+
+  // Route card
+  routeCard: { paddingHorizontal: 4, paddingVertical: 4 },
+  routeRow:  { flexDirection: "row", alignItems: "flex-start", gap: 14 },
+  routeDotWrap: { width: 20, alignItems: "center", paddingTop: 3 },
+  routeDotGreen: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.primary ?? "#4CD964",
+  },
+  routeTextWrap: { flex: 1 },
+  routeLabel: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginBottom: 2,
+  },
+  routeValue: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 14,
+    color: Colors.textPrimary,
+  },
+  routeConnector: { paddingLeft: 9, marginVertical: 6, gap: 3 },
+  dashSegment: {
+    width: 1.5,
+    height: 5,
+    backgroundColor: "#C8D0DC",
+    marginVertical: 1.5,
+  },
+
+  // Distance / duration stats
+  statsPill: {
+    flexDirection: "row",
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
+  },
+  statItem:    { flex: 1, alignItems: "center" },
+  statValue:   {
+    fontFamily: "HelveticaNeue-CondensedBold",
+    fontSize: 22,
+    color: Colors.textPrimary,
+  },
+  statLabel:   {
+    fontFamily: "Poppins-Regular",
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  statDivider: { width: 1, backgroundColor: Colors.divider },
+
+  // Detail card
+  detailCard: { paddingHorizontal: 4 },
+
+  sectionGap: { height: 24 },
+
+  // Payment row
+  paymentRow: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 4,
+    gap: 14,
   },
-  summaryDivider: { height: 1, backgroundColor: Colors.divider },
-  footer: { paddingHorizontal: 24, paddingBottom: 32 },
+  paymentIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F2F4F7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentLabel: {
+    flex: 1,
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 14,
+    color: Colors.textPrimary,
+  },
+  paymentAmount: {
+    fontFamily: "HelveticaNeue-CondensedBold",
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+
+  // Proof photo
+  proofPhoto: {
+    width: "100%",
+    height: 180,
+    borderRadius: 14,
+    marginTop: 4,
+  },
 });
