@@ -268,7 +268,7 @@ export default function ActiveDeliveryScreen() {
   }, [orderId, price, pickupAddress, dropoffAddress, itemType]);
 
   // ── Determine what the CTA should say ────────────────────────────────────
-  const ctaLabel = enRoute ? "I have arrived" : "Package collected";
+ const ctaLabel = enRoute ? "I've arrived at pickup" : "I've collected the package";
   const ctaAction = enRoute ? handleArrived : handleCollected;
   const ctaBusy = enRoute ? isArriving : isCollecting;
 
@@ -443,11 +443,18 @@ export default function ActiveDeliveryScreen() {
             <View style={styles.routeRow}>
               <Text style={styles.routeEmoji}>📦</Text>
               <View style={styles.routeTextWrap}>
-                <Text style={styles.routeLabel}>
-                  {enRoute
-                    ? `Pick-up${displayEta != null ? ` (${displayEta} min away)` : ""}`
-                    : "Pick-up"}
-                </Text>
+                <View
+                  style={[
+                    styles.statusBanner,
+                    { backgroundColor: enRoute ? "#FEF3C7" : "#D1FAE5" },
+                  ]}
+                >
+                  <Text style={styles.statusBannerText}>
+                    {enRoute
+                      ? "Heading to pickup location"
+                      : "Package collected — heading to drop-off"}
+                  </Text>
+                </View>
                 <Text style={styles.routeValue}>{pickupAddress}</Text>
                 <Text style={styles.routeValue}>{itemType}</Text>
               </View>
@@ -746,5 +753,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.white,
     marginTop: 1,
+  },
+  statusBanner: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: Radius.md,
+    alignItems: "center",
+  },
+  statusBannerText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.sm,
+    color: Colors.textPrimary,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./types";
 
@@ -18,22 +18,33 @@ import NotificationPermissionScreen from "@/screens/main/onboarding/Notification
 import { useAuthStore } from "../store/authStore";
 import ResetPasswordScreen from "@/screens/auth/ResetPassword";
 import ForgotPasswordScreen from "@/screens/auth/ForgotPasswordScreen";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STORAGE_KEYS } from "@/lib/api";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { isAuthenticated, isHydrating, hydrate } = useAuthStore();
+  const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
 
   useEffect(() => {
     hydrate();
+    AsyncStorage.getItem(STORAGE_KEYS.HAS_ONBOARDED).then((val) => {
+      setHasOnboarded(val === "true");
+    });
   }, []);
 
-  // Still reading AsyncStorage on first boot
-  if (isHydrating) return null;
+  if (isHydrating || hasOnboarded === null) return null;
 
   return (
     <Stack.Navigator
-      initialRouteName={isAuthenticated ? "MainApp" : "Splash"}
+      initialRouteName={
+        isAuthenticated
+          ? "MainApp"
+          : hasOnboarded
+            ? "Welcome" // ← returning user goes straight to login
+            : "Splash" // ← first ever open sees onboarding
+      }
       screenOptions={{ headerShown: false, gestureEnabled: false }}
     >
       <Stack.Screen name="Splash" component={SplashScreen} />
@@ -47,12 +58,12 @@ export default function RootNavigator() {
         component={PhoneEntryScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
-       <Stack.Screen
+      <Stack.Screen
         name="ResetPassword"
         component={ResetPasswordScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
-       <Stack.Screen
+      <Stack.Screen
         name="ForgotPassword"
         component={ForgotPasswordScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
@@ -62,7 +73,7 @@ export default function RootNavigator() {
         component={OTPScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
       />
-   
+
       <Stack.Screen
         name="CreateProfileStep2"
         component={CreateProfileStep2Screen}
@@ -96,8 +107,3 @@ export default function RootNavigator() {
     </Stack.Navigator>
   );
 }
-
-
-
-
-

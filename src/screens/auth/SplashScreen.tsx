@@ -20,6 +20,7 @@ import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuthStore } from "../../store/authStore";
+import { STORAGE_KEYS } from "@/lib/api";
 
 const BIOMETRIC_KEY = "@voltgo_biometric_enabled";
 
@@ -63,12 +64,13 @@ export default function SplashScreen() {
 
   const handlePostSplash = async () => {
     try {
-      // Only attempt biometric if there is a stored session
+      // Mark that the user has seen the splash/onboarding at least once
+      await AsyncStorage.setItem(STORAGE_KEYS.HAS_ONBOARDED, "true");
+
       if (!isAuthenticated) {
-        navigation.replace("Welcome");
+        navigation.replace("Welcome"); // ← was already correct
         return;
       }
-
       const biometricEnabled = await AsyncStorage.getItem(BIOMETRIC_KEY);
       if (biometricEnabled !== "true") {
         // Biometric not set up — go straight to the app

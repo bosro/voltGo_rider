@@ -21,6 +21,7 @@ export const STORAGE_KEYS = {
   ACCESS_TOKEN: "@voltgo_rider_access_token",
   REFRESH_TOKEN: "@voltgo_rider_refresh_token",
   RIDER_PROFILE: "@voltgo_rider_profile",
+  HAS_ONBOARDED: "@voltgo_has_onboarded",
 } as const;
 
 export const BASE_URL = "https://api.voltgoapp.com/api/v1";
@@ -245,9 +246,8 @@ export const ordersApi = {
     api.post<{ data: Order }>(`/rider/orders/${id}/collected`),
   markInTransit: (id: string) =>
     api.post<{ data: Order }>(`/rider/orders/${id}/in-transit`),
- markDelivered: (id: string, body: { proof_of_delivery_image: string }) =>
-  api.post<{ data: Order }>(`/rider/orders/${id}/delivered`, body),
-
+  markDelivered: (id: string, body: { proof_of_delivery_image: string }) =>
+    api.post<{ data: Order }>(`/rider/orders/${id}/delivered`, body),
 };
 
 export const paymentApi = {
@@ -272,8 +272,8 @@ export interface LoginResponse {
   status: number;
   message: string;
   data: {
-    token: string;           // API returns "token", not "access_token"
-    refreshToken: string;    // API returns "refreshToken", not "refresh_token"
+    token: string; // API returns "token", not "access_token"
+    refreshToken: string; // API returns "refreshToken", not "refresh_token"
     id: string;
     full_name: string;
     phone: string;
@@ -281,7 +281,6 @@ export interface LoginResponse {
     phone_verified: boolean;
   };
 }
-
 
 export interface VerifyPhoneResponse {
   data: {
@@ -418,14 +417,3 @@ export interface AddPaymentMethodPayload {
   account_name: string;
   provider?: string;
 }
-
-
-
-
-
-
-
-
-
-
-

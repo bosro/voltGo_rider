@@ -42,6 +42,9 @@ interface AuthState {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 export const useAuthStore = create<AuthState>((set, get) => ({
+
+
+
   isAuthenticated: false,
   isHydrating: true,
   rider: null,

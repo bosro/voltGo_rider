@@ -52,7 +52,7 @@ export default function AccountScreen() {
         onPress: async () => {
           await logout();
           navigation.dispatch(
-            CommonActions.reset({ index: 0, routes: [{ name: "Splash" }] }),
+            CommonActions.reset({ index: 0, routes: [{ name: "Welcome" }] }),
           );
         },
       },
