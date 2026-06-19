@@ -10,7 +10,7 @@ import NetInfo from "@react-native-community/netinfo";
 
 import RootNavigator from "./src/navigation/RootNavigator";
 import NoInternetScreen from "@/screens/main/onboarding/NoInternetScreen";
-import { ToastProvider } from "@/components/common/toast";
+import { ToastProvider } from "./src/components/common/toast";
 
 SplashScreen.preventAutoHideAsync();
 

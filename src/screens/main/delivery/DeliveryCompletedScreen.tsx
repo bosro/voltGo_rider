@@ -24,7 +24,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
+import UserAvatarIcon from "../../../../assets/icons/user-avatar.svg";
 import { MainStackParamList } from "@/navigation/types";
 import { Colors, Typography, Radius } from "@/theme";
 import Svg, { Path } from "react-native-svg";
