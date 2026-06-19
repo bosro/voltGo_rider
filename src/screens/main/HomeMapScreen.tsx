@@ -287,3 +287,5 @@ const styles = StyleSheet.create({
   },
   riderEmoji: { fontSize: 24 },
 });
+
+

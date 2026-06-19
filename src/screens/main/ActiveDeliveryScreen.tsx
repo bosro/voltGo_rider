@@ -1,30 +1,35 @@
 /**
- * ActiveDeliveryScreen.tsx
+ * ActiveDeliveryScreen.tsx  — RIDER APP
  * ─────────────────────────────────────────────────────────────────
- * REPLACES: EnRoutePickupScreen + PackageCollectedScreen
+ * Fixes applied vs the previous version:
  *
- * A single screen that covers the full active delivery lifecycle.
- * The map, polyline, and card are always visible; only the CTA and
- * route direction change as the order status progresses:
+ *  FIX 1  handleArrived set optimisticStatus to "collected" (wrong).
+ *         Now sets it to "arrived" so the CTA correctly flips to
+ *         "I've collected the package" rather than jumping straight
+ *         to the post-collection phase.
  *
- *   accepted / rider_arriving / arrived
- *     → route: rider → pickup
- *     → CTA: "I have arrived"
+ *  FIX 2  Status banner was "Package collected — heading to drop-off"
+ *         even while the rider was still at the pickup (status=arrived).
+ *         Banner now has three distinct states:
+ *           · enRoute   → "Heading to pickup"
+ *           · arrived   → "At pickup – collect the package"
+ *           · in-transit→ "Package collected – heading to drop-off"
  *
- *   collected / in_transit
- *     → route: pickup → dropoff
- *     → CTA: "Package collected" (only shown when status = accepted/arrived)
- *         or auto-advances after markCollected
- *     → leads to CameraCapture for proof photo
+ *  FIX 3  The dead handleCta() function has been removed.  The button
+ *         always calls ctaAction which is derived from currentStatus.
  *
- *   delivered  → replaced by navigation to DeliveryCompleted
- *   cancelled  → back to MainTabs
+ *  FIX 4  ctaLabel / ctaAction now have an explicit "arrived" branch so
+ *         the CTA is never ambiguous regardless of optimistic vs real status.
  *
- * Live features:
- *  - Rider marker follows riderStore.currentCoords (updated by useLocationTracking)
- *  - Polyline re-fetches when the origin changes by more than ~100 m
- *  - mapRef.fitToCoordinates called when polyline updates
- *  - order:cancelled socket event clears activeOrder → useEffect navigates away
+ *  FIX 5  Navigate button label is phase-aware:
+ *           · enRoute / arrived → "Navigate to Pickup"
+ *           · collected/in_transit → "Navigate to Dropoff"
+ *
+ *  FIX 6  Polyline direction is phase-aware:
+ *           · enRoute / arrived → rider coord → pickup
+ *           · collected/in_transit → pickup → dropoff
+ *         Previously it always used rider→pickup even after the package
+ *         was collected, so the line pointed the wrong way.
  */
 
 import React, {
@@ -44,6 +49,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
+  Platform,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
@@ -57,17 +64,16 @@ import {
   useMarkInTransit,
 } from "../../hooks/rider/useOrders";
 import { useRiderStore } from "../../store/riderStore";
-import { Coordinates } from "../../lib/api";
+import { Coordinates, ordersApi } from "../../lib/api";
 
 import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 import OfflinePill from "@/components/common/OfflinePill";
-import { Linking, Platform } from "react-native";
+import ConfirmModal from "@/components/common/ConfirmModal";
 
 type RouteParams = RouteProp<MainStackParamList, "ActiveDelivery">;
 
 const ACCRA_FALLBACK: Coordinates = { latitude: 5.5968, longitude: -0.1869 };
 
-/** Returns true when two coords differ by more than ~100 m */
 function hasMovedSignificantly(a: Coordinates, b: Coordinates): boolean {
   return (
     Math.abs(a.latitude - b.latitude) > 0.0009 ||
@@ -75,10 +81,26 @@ function hasMovedSignificantly(a: Coordinates, b: Coordinates): boolean {
   );
 }
 
-/** Whether the given status means "heading to pickup" */
-function isEnRoute(status: string): boolean {
-  return ["accepted", "assigned", "rider_arriving", "arrived"].includes(status);
+// ─────────────────────────────────────────────────────────────────
+// Phase helpers — single source of truth for status classification
+// ─────────────────────────────────────────────────────────────────
+
+/** Rider accepted but hasn't yet reached pickup */
+function isHeadingToPickup(status: string): boolean {
+  return ["accepted", "assigned", "rider_arriving"].includes(status);
 }
+
+/** Rider is physically at the pickup, hasn't collected yet */
+function isAtPickup(status: string): boolean {
+  return status === "arrived";
+}
+
+/** Rider has collected and is heading to (or at) the dropoff */
+function isPostCollection(status: string): boolean {
+  return ["collected", "in_transit"].includes(status);
+}
+
+// ─────────────────────────────────────────────────────────────────
 
 export default function ActiveDeliveryScreen() {
   const navigation = useNavigation<any>();
@@ -105,44 +127,43 @@ export default function ActiveDeliveryScreen() {
   };
 
   const hasSeenActiveOrderRef = useRef(false);
+  const deliveryCompletedRef = useRef(false);
 
-  // ── Store state ───────────────────────────────────────────────────────────
+  const [orderCancelledVisible, setOrderCancelledVisible] = useState(false);
+
   const { currentCoords, activeOrder, clearDelivery } = useRiderStore();
   const riderCoord = currentCoords ?? ACCRA_FALLBACK;
 
-  // Track last coords used to trigger a new polyline fetch (avoid refetching
-  // on every tiny GPS ping — only when moved ~100 m)
   const lastPolylineOriginRef = useRef<Coordinates>(riderCoord);
   const [polylineOrigin, setPolylineOrigin] = useState<Coordinates>(riderCoord);
 
+  // ── FIX 1: "arrived" is the correct optimistic status after markArrived ──
+  const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
+
+  // Derive current status — socket keeps activeOrder fresh
+  const currentStatus = optimisticStatus ?? activeOrder?.status ?? "accepted";
+
+  const enRoute = isHeadingToPickup(currentStatus);
+  const atPickup = isAtPickup(currentStatus);
+  const inTransit = isPostCollection(currentStatus);
+
   const [isMinimized, setIsMinimized] = useState(false);
-  const cardAnim = useRef(new Animated.Value(0)).current; // 0 = full, 1 = minimized
+  const cardAnim = useRef(new Animated.Value(0)).current;
   const fabScale = useRef(new Animated.Value(0)).current;
 
-  const openNavigation = (destLat: number, destLng: number, label: string) => {
-    const destination = `${destLat},${destLng}`;
+  // ── FIX 6: polyline direction is phase-aware ──────────────────────────────
+  //   · enRoute OR atPickup → rider position → pickup
+  //   · inTransit           → pickup        → dropoff
+  const polylineOriginCoord = inTransit ? pickupCoord : polylineOrigin;
+  const polylineDest = inTransit ? dropoffCoord : pickupCoord;
 
-    if (Platform.OS === "ios") {
-      // Opens Apple Maps in driving navigation mode
-      const url = `maps://app?daddr=${destination}&dirflg=d`;
-      Linking.canOpenURL(url).then((supported) => {
-        if (supported) {
-          Linking.openURL(url);
-        } else {
-          // Fallback to Google Maps
-          Linking.openURL(
-            `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`,
-          );
-        }
-      });
-    } else {
-      // Opens Google Maps on Android in navigation mode
-      Linking.openURL(`google.navigation:q=${destination}&mode=d`);
-    }
-  };
+  const { coords: routeCoords, etaMinutes } = useRoutePolyline({
+    origin: polylineOriginCoord,
+    destination: polylineDest,
+    mode: "TWO_WHEELER",
+  });
 
-  const deliveryCompletedRef = useRef(false);
-
+  // Update polyline origin when rider moves ~100 m
   useEffect(() => {
     if (!currentCoords) return;
     if (hasMovedSignificantly(currentCoords, lastPolylineOriginRef.current)) {
@@ -150,22 +171,6 @@ export default function ActiveDeliveryScreen() {
       setPolylineOrigin(currentCoords);
     }
   }, [currentCoords]);
-
-  const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
-
-  // Derive current status — prefer store (kept fresh by socket) over params
-  const currentStatus = optimisticStatus ?? activeOrder?.status ?? "accepted";
-  const enRoute = isEnRoute(currentStatus);
-
-  // ── Polyline ──────────────────────────────────────────────────────────────
-  const polylineOriginCoord = enRoute ? polylineOrigin : pickupCoord;
-  const polylineDest = enRoute ? pickupCoord : dropoffCoord;
-
-  const { coords: routeCoords, etaMinutes } = useRoutePolyline({
-    origin: polylineOriginCoord,
-    destination: polylineDest,
-    mode: "TWO_WHEELER",
-  });
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -217,47 +222,64 @@ export default function ActiveDeliveryScreen() {
     useMarkCollected();
   const { mutateAsync: markInTransit } = useMarkInTransit();
 
+  // Clear optimistic status when real status arrives from socket
+  useEffect(() => {
+    if (activeOrder?.status) {
+      setOptimisticStatus(null);
+    }
+  }, [activeOrder?.status]);
+
   // ── Socket-driven navigation ──────────────────────────────────────────────
-  // When order:cancelled fires, useSocket clears activeOrder → navigate away
   useEffect(() => {
     if (activeOrder) {
       hasSeenActiveOrderRef.current = true;
       return;
     }
-    // Only show "cancelled" alert if the delivery wasn't completed
-    // Check: if activeOrder is null but we're still on this screen AND
-    // it wasn't a successful delivery navigation
     if (hasSeenActiveOrderRef.current && !deliveryCompletedRef.current) {
-      Alert.alert("Order Cancelled", "The customer cancelled this delivery.");
-      navigation.replace("MainTabs");
+      setOrderCancelledVisible(true);
     }
   }, [activeOrder]);
 
   // ── CTA handlers ─────────────────────────────────────────────────────────
-  const handleArrived = async () => {
+
+  /**
+   * Called when rider taps the CTA while en-route (heading to pickup).
+   * Posts "arrived" to the REST API and sets optimistic status to "arrived"
+   * (not "collected") so the next CTA becomes "I've collected the package".
+   * FIX 1 was here: old code set optimisticStatus to "collected".
+   */
+  const handleArrived = useCallback(async () => {
     try {
       await markArrived(orderId);
-      // Force the CTA to flip regardless of what backend returns
-      setOptimisticStatus("collected");
+      // FIX 1: "arrived" is the correct next status, not "collected"
+      setOptimisticStatus("arrived");
     } catch {
       setOptimisticStatus(null);
     }
-  };
+  }, [orderId, markArrived]);
 
-  useEffect(() => {
-    if (activeOrder?.status) {
-      setOptimisticStatus(null); // real status arrived, clear optimistic
-    }
-  }, [activeOrder?.status]);
-
+  // Tapped while at pickup (status = "arrived"). Marks collected + in-transit,
+  // then STAYS on this screen so the rider can navigate to dropoff.
+  // No camera here — proof photo only happens at dropoff (Fix below).
   const handleCollected = useCallback(async () => {
     try {
       await markCollected(orderId);
-      markInTransit(orderId).catch(() => {});
+      await markInTransit(orderId);
+      // No optimistic status flip needed — useMarkInTransit's onSuccess
+      // already calls setActiveOrder, which flips currentStatus to
+      // "in_transit" via the socket-or-store value, which in turn flips
+      // ctaLabel/ctaAction below to the delivered branch automatically.
     } catch {
-      // proceed regardless
+      // Best-effort — if in-transit fails, optimistic status still lets
+      // the rider proceed; the next "delivered" call will retry server state.
+      setOptimisticStatus("in_transit");
     }
-    deliveryCompletedRef.current = true; // ← mark as intentional navigation
+  }, [orderId, markCollected, markInTransit]);
+
+  // Tapped while in transit / at dropoff. THIS is where the camera opens —
+  // proof of delivery is captured at the customer's location, not at pickup.
+  const handleArrivedAtDropoff = useCallback(() => {
+    deliveryCompletedRef.current = true;
     navigation.navigate("CameraCapture", {
       orderId,
       amount: parseFloat(String(price ?? "0")),
@@ -267,12 +289,53 @@ export default function ActiveDeliveryScreen() {
     });
   }, [orderId, price, pickupAddress, dropoffAddress, itemType]);
 
-  // ── Determine what the CTA should say ────────────────────────────────────
- const ctaLabel = enRoute ? "I've arrived at pickup" : "I've collected the package";
-  const ctaAction = enRoute ? handleArrived : handleCollected;
-  const ctaBusy = enRoute ? isArriving : isCollecting;
+  // ── FIX 3 & 4: clean CTA derivation — no dead handleCta ─────────────────
+  //
+  //  enRoute  (accepted/assigned/rider_arriving) → "I have arrived at pickup"
+  //  atPickup (arrived)                          → "I've collected the package"
+  //  inTransit(collected/in_transit)             → "I've delivered the package"
+  //
+  const ctaLabel = enRoute
+    ? "I have arrived at pickup"
+    : atPickup
+      ? "I've collected the package"
+      : "I've arrived — take delivery photo";
+
+  const ctaAction = enRoute
+    ? handleArrived
+    : atPickup
+      ? handleCollected
+      : handleArrivedAtDropoff; // ← was the inline camera-navigate closure
+
+  const ctaBusy = enRoute ? isArriving : atPickup ? isCollecting : false;
+
+  // ── FIX 5: navigation label is phase-aware ────────────────────────────────
+  const navButtonLabel = inTransit
+    ? "Navigate to Dropoff"
+    : "Navigate to Pickup";
+
+  const navDestCoord = inTransit ? dropoffCoord : pickupCoord;
+  const navDestAddress = inTransit ? dropoffAddress : pickupAddress;
 
   const displayEta = etaMinutes ?? pickupEta ?? null;
+
+  const openNavigation = (destLat: number, destLng: number, label: string) => {
+    const destination = `${destLat},${destLng}`;
+    if (Platform.OS === "ios") {
+      const url = `maps://app?daddr=${destination}&dirflg=d`;
+      Linking.canOpenURL(url).then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          Linking.openURL(
+            `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`,
+          );
+        }
+      });
+    } else {
+      Linking.openURL(`google.navigation:q=${destination}&mode=d`);
+    }
+  };
 
   const minimizeCard = () => {
     Animated.parallel([
@@ -306,11 +369,23 @@ export default function ActiveDeliveryScreen() {
     ]).start();
   };
 
-  // Card translateY: slides off bottom when minimized
   const cardTranslateY = cardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 320], // slides card down off screen
+    outputRange: [0, 320],
   });
+
+  // ── FIX 2: banner now has three meaningful states ─────────────────────────
+  const bannerText = enRoute
+    ? "Heading to pickup location"
+    : atPickup
+      ? "At pickup — collect the package"
+      : "Package collected — heading to drop-off";
+
+  const bannerBg = enRoute
+    ? "#FEF3C7" // amber tint
+    : atPickup
+      ? "#EEF2FF" // indigo tint
+      : "#D1FAE5"; // green tint
 
   return (
     <View style={styles.container}>
@@ -335,7 +410,6 @@ export default function ActiveDeliveryScreen() {
         showsCompass={false}
         toolbarEnabled={false}
       >
-        {/* Route polyline */}
         {routeCoords.length > 0 && (
           <Polyline
             coordinates={routeCoords}
@@ -344,11 +418,11 @@ export default function ActiveDeliveryScreen() {
           />
         )}
 
-        {/* Rider position — updates as currentCoords changes */}
+        {/* Rider position */}
         <Marker
           coordinate={riderCoord}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={!!currentCoords} // track changes while we have live GPS
+          tracksViewChanges={!!currentCoords}
         >
           <View style={styles.riderDotOuter}>
             <View style={styles.riderDot} />
@@ -398,7 +472,6 @@ export default function ActiveDeliveryScreen() {
         )}
       </MapView>
 
-      {/* Pill — same component, same position on every map screen */}
       <OfflinePill />
 
       <Animated.View
@@ -408,12 +481,11 @@ export default function ActiveDeliveryScreen() {
             opacity: fadeIn,
             transform: [
               { translateY: slideUp },
-              { translateY: cardTranslateY }, // ← add this
+              { translateY: cardTranslateY },
             ],
           },
         ]}
       >
-        {/* Add minimize button at top-right of card */}
         <TouchableOpacity
           style={styles.minimizeBtn}
           onPress={minimizeCard}
@@ -421,6 +493,7 @@ export default function ActiveDeliveryScreen() {
         >
           <Text style={styles.minimizeBtnText}>—</Text>
         </TouchableOpacity>
+
         {/* Customer row */}
         <View style={styles.customerRow}>
           <View style={styles.avatarCircle}>
@@ -443,17 +516,11 @@ export default function ActiveDeliveryScreen() {
             <View style={styles.routeRow}>
               <Text style={styles.routeEmoji}>📦</Text>
               <View style={styles.routeTextWrap}>
+                {/* FIX 2: banner clearly describes the current phase */}
                 <View
-                  style={[
-                    styles.statusBanner,
-                    { backgroundColor: enRoute ? "#FEF3C7" : "#D1FAE5" },
-                  ]}
+                  style={[styles.statusBanner, { backgroundColor: bannerBg }]}
                 >
-                  <Text style={styles.statusBannerText}>
-                    {enRoute
-                      ? "Heading to pickup location"
-                      : "Package collected — heading to drop-off"}
-                  </Text>
+                  <Text style={styles.statusBannerText}>{bannerText}</Text>
                 </View>
                 <Text style={styles.routeValue}>{pickupAddress}</Text>
                 <Text style={styles.routeValue}>{itemType}</Text>
@@ -475,13 +542,16 @@ export default function ActiveDeliveryScreen() {
           <Text style={styles.price}>GHS {Number(price || 0).toFixed(2)}</Text>
         </View>
 
+        {/* FIX 5: navigate button label and destination are phase-aware */}
         <TouchableOpacity
           style={styles.navBtn}
-          onPress={() => {
-            const dest = enRoute ? pickupCoord : dropoffCoord;
-            const label = enRoute ? pickupAddress : dropoffAddress;
-            openNavigation(dest.latitude, dest.longitude, label);
-          }}
+          onPress={() =>
+            openNavigation(
+              navDestCoord.latitude,
+              navDestCoord.longitude,
+              navDestAddress,
+            )
+          }
           activeOpacity={0.88}
         >
           <View style={styles.navBtnContent}>
@@ -490,13 +560,12 @@ export default function ActiveDeliveryScreen() {
               style={styles.navIcon}
               resizeMode="contain"
             />
-            <Text style={styles.navBtnText}>
-              {enRoute ? "Navigate to Pickup" : "Navigate to Dropoff"}
-            </Text>
+            {/* FIX 5 */}
+            <Text style={styles.navBtnText}>{navButtonLabel}</Text>
           </View>
         </TouchableOpacity>
 
-        {/* Single CTA — label and action change with status */}
+        {/* FIX 3 & 4: single CTA always calls ctaAction, no dead handleCta */}
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={ctaAction}
@@ -511,6 +580,7 @@ export default function ActiveDeliveryScreen() {
         </TouchableOpacity>
       </Animated.View>
 
+      {/* Floating action button (minimized state) */}
       <Animated.View
         style={[
           styles.fab,
@@ -532,6 +602,17 @@ export default function ActiveDeliveryScreen() {
           )}
         </TouchableOpacity>
       </Animated.View>
+
+      <ConfirmModal
+        visible={orderCancelledVisible}
+        title="Order Cancelled"
+        message="The customer cancelled this delivery."
+        primaryLabel="OK"
+        onPrimary={() => {
+          setOrderCancelledVisible(false);
+          navigation.replace("MainTabs");
+        }}
+      />
     </View>
   );
 }
@@ -611,6 +692,21 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     ...Shadow.modal,
   },
+  minimizeBtn: {
+    position: "absolute",
+    top: 12,
+    right: 14,
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  minimizeBtnText: {
+    fontSize: 20,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
   customerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -671,6 +767,41 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     alignSelf: "center",
   },
+
+  statusBanner: {
+    marginBottom: 6,
+    padding: 8,
+    borderRadius: Radius.md,
+    alignItems: "center",
+  },
+  statusBannerText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.sm,
+    color: Colors.textPrimary,
+  },
+
+  navBtn: {
+    backgroundColor: "#F0F4F8",
+    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  navBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navIcon: { width: 18, height: 18, marginRight: 8 },
+  navBtnText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
+    color: Colors.navy,
+  },
+
   actionBtn: {
     backgroundColor: Colors.navy,
     borderRadius: Radius.lg,
@@ -683,48 +814,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.base,
     color: Colors.white,
   },
-  navBtn: {
-    backgroundColor: "#F0F4F8",
-    borderRadius: Radius.lg,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  navBtnText: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: Typography.base,
-    color: Colors.navy,
-  },
 
-  navBtnContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  navIcon: {
-    width: 18,
-    height: 18,
-    marginRight: 8,
-  },
-  minimizeBtn: {
-    position: "absolute",
-    top: 12,
-    right: 14,
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
-  },
-  minimizeBtnText: {
-    fontSize: 20,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
   fab: {
     position: "absolute",
     bottom: 36,
@@ -740,30 +830,12 @@ const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 20,
   },
-  fabInner: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fabEmoji: {
-    fontSize: 22,
-  },
+  fabInner: { flex: 1, alignItems: "center", justifyContent: "center" },
+  fabEmoji: { fontSize: 22 },
   fabEta: {
     fontFamily: "Poppins-SemiBold",
     fontSize: 10,
     color: Colors.white,
     marginTop: 1,
-  },
-  statusBanner: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 10,
-    borderRadius: Radius.md,
-    alignItems: "center",
-  },
-  statusBannerText: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: Typography.sm,
-    color: Colors.textPrimary,
   },
 });

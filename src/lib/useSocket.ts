@@ -12,10 +12,21 @@
  *    hook means it never competes with React Navigation's own state.
  *
  * ── Events handled ───────────────────────────────────────────────
- *  order:assigned       → setPendingOffer  (HomeMapScreen reacts)
+ *  order:assigned       → setPendingOffer + setActiveOrder
  *  order:cancelled      → clear pending/active offer
  *  order:status_changed → update activeOrder.status in store
  *  error                → console.warn
+ *
+ * ── Changes vs previous version ─────────────────────────────────
+ *  FIX A  onOrderAssigned now calls setActiveOrder(offer) in addition
+ *         to setPendingOffer(offer). Without this, activeOrder was
+ *         always null in the store, causing all socket status updates
+ *         to be silently dropped (the guard current.id === payload.order_id
+ *         never matched null). Also syncs the enriched full order.
+ *
+ *  FIX B  onStatusChanged now handles "delivered" explicitly by
+ *         calling clearDelivery() so the store cleans up correctly
+ *         when the server confirms delivery, not just on cancellation.
  */
 
 import { useEffect, useRef } from "react";
@@ -59,7 +70,7 @@ export function useSocket() {
         pickup_address: payload.pickup_address,
         dropoff_address: payload.dropoff_address,
         item_description: payload.item_type ?? "",
-        price_ghs: String(payload.price ?? "0"), // ← was: price: payload.price ?? 0
+        price_ghs: String(payload.price ?? "0"),
         pickup_coords: {
           latitude: payload.pickup_lat,
           longitude: payload.pickup_lng,
@@ -68,7 +79,6 @@ export function useSocket() {
           latitude: payload.dropoff_lat,
           longitude: payload.dropoff_lng,
         },
-        // fill required Order fields with safe defaults
         pickup_lat: String(payload.pickup_lat),
         pickup_lng: String(payload.pickup_lng),
         dropoff_lat: String(payload.dropoff_lat),
@@ -92,7 +102,14 @@ export function useSocket() {
         created_at: payload.timestamp,
         updated_at: payload.timestamp,
       };
+
+      // Show the offer card on HomeMapScreen
       setPendingOffer(offer);
+
+      // FIX A: also populate activeOrder so the store is ready before
+      // the rider taps Accept. useAcceptOrder.onSuccess will overwrite
+      // this with the full REST response once they accept.
+      setActiveOrder(offer);
 
       // Enrich with full order data in background
       try {
@@ -100,7 +117,11 @@ export function useSocket() {
         const full = (res.data?.data ?? []).find(
           (o: Order) => o.id === payload.order_id,
         );
-        if (full) setPendingOffer(full);
+        if (full) {
+          setPendingOffer(full);
+          // FIX A: keep activeOrder in sync with the enriched data
+          setActiveOrder(full);
+        }
       } catch {
         // silent — base offer already shown
       }
@@ -131,9 +152,19 @@ export function useSocket() {
       const current = activeOrderRef.current;
       if (!current || current.id !== payload.order_id) return;
 
+      // FIX B: "delivered" means the delivery is fully complete —
+      // clean up the store so ActiveDeliveryScreen navigates away.
+      if (payload.status === "delivered") {
+        clearDelivery();
+        return;
+      }
+
       setActiveOrder({
         ...current,
         status: payload.status as Order["status"],
+        ...(payload.proof_of_delivery_url
+          ? { proof_of_delivery_url: payload.proof_of_delivery_url }
+          : {}),
       });
       // ActiveDeliveryScreen's useEffect on activeOrder.status drives
       // the CTA and card content — no extra navigation needed here.
@@ -159,3 +190,4 @@ export function useSocket() {
     };
   }, [isAuthenticated, rider?.id]);
 }
+

@@ -23,6 +23,7 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
@@ -37,6 +38,7 @@ import { useRiderStore } from "../../store/riderStore";
 import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 import CloseXIcon from "../../../assets/icons/close-x.svg";
 import OfflinePill from "@/components/common/OfflinePill";
+import { useToast } from "@/components/common/toast";
 
 type RouteParams = RouteProp<MainStackParamList, "DeliveryRequest">;
 
@@ -46,6 +48,7 @@ export default function DeliveryRequestScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteParams>();
   const mapRef = useRef<MapView>(null);
+  const toast = useToast();
 
   const {
     orderId,
@@ -146,15 +149,25 @@ export default function DeliveryRequestScreen() {
   const handleAccept = async () => {
     try {
       await acceptOrder(orderId);
+      // useAcceptOrder.onSuccess has already called setActiveOrder(order).
+      // Navigate with the same route params so the screen has pickup/dropoff
+      // coords, price, customer info, etc. from the offer.
       navigation.replace("ActiveDelivery", route.params);
-    } catch {
-      navigation.replace("MainTabs");
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ??
+        "Could not accept this order. It may have been cancelled.";
+      toast.error(message);
+      // Do NOT navigate away — let the rider see the offer again or wait
+      // for the auto-decline countdown.
     }
   };
 
   const handleDecline = async () => {
     try {
       await declineOrder(orderId);
+    } catch {
+      // Best-effort decline — server may already have cancelled it
     } finally {
       navigation.replace("MainTabs");
     }
@@ -512,10 +525,3 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 });
-
-
-
-
-
-
-

@@ -42,8 +42,8 @@ export default function RootNavigator() {
         isAuthenticated
           ? "MainApp"
           : hasOnboarded
-            ? "Welcome" // ← returning user goes straight to login
-            : "Splash" // ← first ever open sees onboarding
+            ? "PhoneEntry" // ← returning user goes straight to login
+            : "Splash" // ← first ever open sees Splash → Welcome → PhoneEntry
       }
       screenOptions={{ headerShown: false, gestureEnabled: false }}
     >
@@ -107,3 +107,5 @@ export default function RootNavigator() {
     </Stack.Navigator>
   );
 }
+
+

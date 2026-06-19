@@ -40,21 +40,24 @@ type ActivityDetailParams = {
 function formatPayment(method: string): string {
   const map: Record<string, string> = {
     bundle_credit: "Bundle Credits",
-    bundle:        "Bundle Credits",
-    momo:          "Mobile Money",
-    card:          "Card",
-    cash:          "Cash",
+    bundle: "Bundle Credits",
+    momo: "Mobile Money",
+    card: "Card",
+    cash: "Cash",
   };
-  return map[method] ?? (method ? method.charAt(0).toUpperCase() + method.slice(1) : "—");
+  return (
+    map[method] ??
+    (method ? method.charAt(0).toUpperCase() + method.slice(1) : "—")
+  );
 }
 
 function formatVehicle(v: string): string {
   const map: Record<string, string> = {
-    motorcycle:    "Motorcycle",
-    bicycle:       "Bicycle",
-    "e-motorcycle":"E-Moto",
-    car:           "Car",
-    walking:       "Walking",
+    motorcycle: "Motorcycle",
+    bicycle: "Bicycle",
+    "e-motorcycle": "E-Moto",
+    car: "Car",
+    walking: "Walking",
   };
   return map[v] ?? (v || "—");
 }
@@ -82,22 +85,29 @@ export default function ActivityDetailScreen() {
     fromCompletion,
   } = route.params ?? ({} as any);
 
-  const fadeIn  = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.spring(slideUp, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
+      Animated.timing(fadeIn, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUp, {
+        toValue: 0,
+        tension: 60,
+        friction: 10,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
   const isCompleted = status === "completed";
   const isCancelled = status === "cancelled";
 
-  const shortId = activityId
-    ? `#${activityId.slice(-8).toUpperCase()}`
-    : "—";
+  const shortId = activityId ? `#${activityId.slice(-8).toUpperCase()}` : "—";
 
   // Back button: if we came from DeliveryCompleted (or there's nothing to go
   // back to), reset to Activities tab. Otherwise just go back.
@@ -142,18 +152,22 @@ export default function ActivityDetailScreen() {
         <View
           style={[
             styles.statusBadge,
-            isCompleted ? styles.badgeCompleted :
-            isCancelled ? styles.badgeCancelled :
-            styles.badgeActive,
+            isCompleted
+              ? styles.badgeCompleted
+              : isCancelled
+                ? styles.badgeCancelled
+                : styles.badgeActive,
           ]}
         >
           <View
             style={[
               styles.statusDot,
               {
-                backgroundColor: isCompleted ? "#1A8A3C" :
-                                  isCancelled ? "#EF4444" :
-                                  "#1D4ED8",
+                backgroundColor: isCompleted
+                  ? "#1A8A3C"
+                  : isCancelled
+                    ? "#EF4444"
+                    : "#1D4ED8",
               },
             ]}
           />
@@ -161,9 +175,11 @@ export default function ActivityDetailScreen() {
             style={[
               styles.statusText,
               {
-                color: isCompleted ? "#1A8A3C" :
-                        isCancelled ? "#EF4444" :
-                        "#1D4ED8",
+                color: isCompleted
+                  ? "#1A8A3C"
+                  : isCancelled
+                    ? "#EF4444"
+                    : "#1D4ED8",
               },
             ]}
           >
@@ -184,7 +200,12 @@ export default function ActivityDetailScreen() {
         {/* Cancelled / active — just show date + order ID */}
         {!isCompleted && (
           <View style={styles.amountHero}>
-            <Text style={[styles.amountValue, { fontSize: 22, color: Colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.amountValue,
+                { fontSize: 22, color: Colors.textSecondary },
+              ]}
+            >
               {shortId}
             </Text>
             <Text style={styles.amountDate}>{date ?? "—"}</Text>
@@ -204,12 +225,14 @@ export default function ActivityDetailScreen() {
                 style={styles.vehicleImg}
                 resizeMode="contain"
               />
-              <Text style={styles.vehicleLabel}>{formatVehicle(vehicleType)}</Text>
+              <Text style={styles.vehicleLabel}>
+                {formatVehicle(vehicleType)}
+              </Text>
             </View>
-          ) : <View />}
-          {isCompleted && (
-            <Text style={styles.deliveryId}>{shortId}</Text>
+          ) : (
+            <View />
           )}
+          {isCompleted && <Text style={styles.deliveryId}>{shortId}</Text>}
         </View>
 
         <View style={styles.divider} />
@@ -255,7 +278,9 @@ export default function ActivityDetailScreen() {
             <View style={styles.statsPill}>
               {distanceKm != null && (
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{distanceKm.toFixed(1)} km</Text>
+                  <Text style={styles.statValue}>
+                    {Number(distanceKm).toFixed(1)} km
+                  </Text>
                   <Text style={styles.statLabel}>Distance</Text>
                 </View>
               )}
@@ -276,9 +301,9 @@ export default function ActivityDetailScreen() {
         <View style={styles.sectionGap} />
         <SectionLabel label="Package" />
         <View style={styles.detailCard}>
-          <DetailRow label="Item"        value={itemDescription || "Parcel"} />
-          <DetailRow label="Customer"    value={customerName    || "—"} />
-          <DetailRow label="Phone"       value={customerPhone   || "—"} last />
+          <DetailRow label="Item" value={itemDescription || "Parcel"} />
+          <DetailRow label="Customer" value={customerName || "—"} />
+          <DetailRow label="Phone" value={customerPhone || "—"} last />
         </View>
 
         {/* ── Payment ───────────────────────────────────────────── */}
@@ -339,7 +364,9 @@ function DetailRow({
   return (
     <View style={[detailStyles.row, !last && detailStyles.rowBorder]}>
       <Text style={detailStyles.label}>{label}</Text>
-      <Text style={detailStyles.value} numberOfLines={2}>{value}</Text>
+      <Text style={detailStyles.value} numberOfLines={2}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -426,12 +453,12 @@ const styles = StyleSheet.create({
   },
   badgeCompleted: { backgroundColor: "#EDFBF1" },
   badgeCancelled: { backgroundColor: "#FEF2F2" },
-  badgeActive:    { backgroundColor: "#DBEAFE" },
-  statusDot:  { width: 7, height: 7, borderRadius: 4 },
+  badgeActive: { backgroundColor: "#DBEAFE" },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusText: { fontFamily: "Poppins-SemiBold", fontSize: 13 },
 
   // Amount hero
-  amountHero:  { marginBottom: 16 },
+  amountHero: { marginBottom: 16 },
   amountValue: {
     fontFamily: "HelveticaNeue-CondensedBold",
     fontSize: 38,
@@ -461,7 +488,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: "#EEEEEE",
   },
-  vehicleImg:   { width: 36, height: 28 },
+  vehicleImg: { width: 36, height: 28 },
   vehicleLabel: {
     fontFamily: "Poppins-SemiBold",
     fontSize: 13,
@@ -477,7 +504,7 @@ const styles = StyleSheet.create({
 
   // Route card
   routeCard: { paddingHorizontal: 4, paddingVertical: 4 },
-  routeRow:  { flexDirection: "row", alignItems: "flex-start", gap: 14 },
+  routeRow: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
   routeDotWrap: { width: 20, alignItems: "center", paddingTop: 3 },
   routeDotGreen: {
     width: 12,
@@ -513,13 +540,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
   },
-  statItem:    { flex: 1, alignItems: "center" },
-  statValue:   {
+  statItem: { flex: 1, alignItems: "center" },
+  statValue: {
     fontFamily: "HelveticaNeue-CondensedBold",
     fontSize: 22,
     color: Colors.textPrimary,
   },
-  statLabel:   {
+  statLabel: {
     fontFamily: "Poppins-Regular",
     fontSize: 12,
     color: Colors.textMuted,

@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NavyButton } from "../../components/common";
 import { Colors, Typography } from "../../theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STORAGE_KEYS } from "@/lib/api";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.58;
@@ -83,7 +85,10 @@ export default function WelcomeScreen() {
         </Text>
         <NavyButton
           label="Get started"
-          onPress={() => navigation.navigate("PhoneEntry")}
+          onPress={async () => {
+            await AsyncStorage.setItem(STORAGE_KEYS.HAS_ONBOARDED, "true");
+            navigation.navigate("PhoneEntry");
+          }}
           style={[styles.btn, { marginBottom: Math.max(insets.bottom, 8) + 8 }]}
         />
       </Animated.View>
@@ -131,5 +136,5 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     paddingHorizontal: 8,
   },
-  btn: { width: "100%", marginHorizontal: 0, },
+  btn: { width: "100%", marginHorizontal: 0 },
 });

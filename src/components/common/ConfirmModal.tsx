@@ -1,172 +1,159 @@
 /**
- * ConfirmModal.tsx
- * Reusable confirmation modal for Voltgo — matches app design system.
+ * ConfirmModal.tsx — RIDER APP
+ * ─────────────────────────────────────────────────────────────────
+ * Replaces Alert.alert(...) across rider screens with a themed,
+ * controlled modal. Supports 1 or 2 actions, an optional "danger"
+ * style for destructive actions (matches Colors.errorRed elsewhere
+ * in your app), and a loading state on the primary button.
  *
- * Usage:
+ * Usage (declarative — render once per screen, control with state):
+ *   const [confirmVisible, setConfirmVisible] = useState(false);
+ *
  *   <ConfirmModal
- *     visible={showModal}
- *     title="Log out"
- *     message="Are you sure you want to log out?"
- *     confirmLabel="Log out"
- *     variant="danger"           // "danger" | "primary" | "default"
- *     onConfirm={handleLogout}
- *     onCancel={() => setShowModal(false)}
+ *     visible={confirmVisible}
+ *     title="Order Cancelled"
+ *     message="The customer cancelled this delivery."
+ *     primaryLabel="OK"
+ *     onPrimary={() => { setConfirmVisible(false); navigation.replace("MainTabs"); }}
+ *   />
+ *
+ * Two-button / destructive usage:
+ *   <ConfirmModal
+ *     visible={visible}
+ *     title="Rider already on the way"
+ *     message="Contact support if you need to cancel this delivery."
+ *     primaryLabel="Contact support"
+ *     onPrimary={() => { setVisible(false); navigation.navigate("Support"); }}
+ *     secondaryLabel="Keep delivery"
+ *     onSecondary={() => setVisible(false)}
+ *     danger
  *   />
  */
 
 import React, { useEffect, useRef } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
   Animated,
-  Pressable,
-  ActivityIndicator,
+  Modal,
   Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  Dimensions,
 } from "react-native";
+import { Colors, Radius, Shadow, Typography } from "../../theme";
 
-const Colors = {
-  white: "#FFFFFF",
-  navy: "#0B1F3A",
-  primary: "#4CD964",
-  textPrimary: "#1A1A2E",
-  textMuted: "#9CA3AF",
-  border: "#EFEFEF",
-  danger: "#E05252",
-  overlay: "rgba(11, 31, 58, 0.55)",
-};
-
-export type ConfirmModalVariant = "danger" | "primary" | "default";
+const { height: SCREEN_H } = Dimensions.get("window");
 
 interface ConfirmModalProps {
   visible: boolean;
   title: string;
-  message: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  variant?: ConfirmModalVariant;
+  message?: string;
+  primaryLabel: string;
+  onPrimary: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+  /** Styles primary button red instead of navy — for destructive actions */
+  danger?: boolean;
+  /** Shows a spinner on the primary button and disables both buttons */
   loading?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
+  /** Called when the user taps the backdrop. Defaults to onSecondary (or no-op). */
+  onClose?: () => void;
 }
 
 export default function ConfirmModal({
   visible,
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
-  variant = "default",
+  primaryLabel,
+  onPrimary,
+  secondaryLabel,
+  onSecondary,
+  danger = false,
   loading = false,
-  onConfirm,
-  onCancel,
+  onClose,
 }: ConfirmModalProps) {
-  const translateY = useRef(new Animated.Value(60)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scaleY = useRef(new Animated.Value(0.95)).current;
+  const slideAnim = useRef(new Animated.Value(60)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.timing(opacity, {
+        Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 220,
           useNativeDriver: true,
         }),
-        Animated.spring(translateY, {
+        Animated.spring(slideAnim, {
           toValue: 0,
-          tension: 65,
-          friction: 11,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleY, {
-          toValue: 1,
-          tension: 65,
-          friction: 11,
+          tension: 68,
+          friction: 12,
           useNativeDriver: true,
         }),
       ]).start();
     } else {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 40,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      fadeAnim.setValue(0);
+      slideAnim.setValue(60);
     }
   }, [visible]);
 
-  const confirmBgColor =
-    variant === "danger"
-      ? Colors.danger
-      : variant === "primary"
-        ? Colors.primary
-        : Colors.navy;
-
-  const confirmTextColor =
-    variant === "primary" ? Colors.textPrimary : Colors.white;
+  const handleBackdropPress = () => {
+    if (loading) return;
+    (onClose ?? onSecondary)?.();
+  };
 
   return (
     <Modal
-      transparent
       visible={visible}
+      transparent
       animationType="none"
-      statusBarTranslucent
-      onRequestClose={onCancel}
+      onRequestClose={handleBackdropPress}
     >
-      {/* Backdrop */}
-      <Pressable style={styles.backdrop} onPress={loading ? undefined : onCancel}>
-        <Animated.View style={[StyleSheet.absoluteFill, styles.backdropInner, { opacity }]} />
-      </Pressable>
+      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={handleBackdropPress}
+        />
+      </Animated.View>
 
-      {/* Sheet */}
-      <View style={styles.sheetContainer} pointerEvents="box-none">
+      <View style={styles.centerWrap} pointerEvents="box-none">
         <Animated.View
           style={[
-            styles.sheet,
-            {
-              opacity,
-              transform: [{ translateY }, { scale: scaleY }],
-            },
+            styles.card,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
-          {/* Drag pill */}
-          <View style={styles.pill} />
-
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
+          {!!message && <Text style={styles.message}>{message}</Text>}
 
-          {/* Actions */}
-          <View style={styles.actions}>
+          <View style={styles.btnRow}>
+            {!!secondaryLabel && (
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={onSecondary}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.secondaryText}>{secondaryLabel}</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={onCancel}
-              activeOpacity={0.7}
+              style={[
+                styles.primaryBtn,
+                danger && styles.primaryBtnDanger,
+                !secondaryLabel && styles.primaryBtnFull,
+                loading && { opacity: 0.7 },
+              ]}
+              onPress={onPrimary}
               disabled={loading}
-            >
-              <Text style={styles.cancelText}>{cancelLabel}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.confirmBtn, { backgroundColor: confirmBgColor }, loading && { opacity: 0.65 }]}
-              onPress={onConfirm}
               activeOpacity={0.85}
-              disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={confirmTextColor} />
+                <ActivityIndicator color={Colors.white} size="small" />
               ) : (
-                <Text style={[styles.confirmText, { color: confirmTextColor }]}>
-                  {confirmLabel}
-                </Text>
+                <Text style={styles.primaryText}>{primaryLabel}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -179,76 +166,71 @@ export default function ConfirmModal({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(11, 31, 58, 0.45)",
   },
-  backdropInner: {
-    backgroundColor: Colors.overlay,
-  },
-  sheetContainer: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  centerWrap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: SCREEN_H,
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 44 : 28,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 16,
   },
-  pill: {
-    alignSelf: "center",
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
-    marginBottom: 20,
+  card: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 18,
+    ...Shadow.modal,
   },
   title: {
     fontFamily: "HelveticaNeue-CondensedBold",
-    fontSize: 20,
+    fontSize: 19,
     color: Colors.textPrimary,
-    letterSpacing: 0.2,
+    textAlign: "center",
     marginBottom: 8,
+    letterSpacing: 0.2,
   },
   message: {
     fontFamily: "Poppins-Regular",
-    fontSize: 14,
-    color: Colors.textMuted,
-    lineHeight: 22,
-    marginBottom: 28,
+    fontSize: Typography.sm,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 22,
   },
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  cancelBtn: {
+  btnRow: { flexDirection: "row", gap: 10 },
+  secondaryBtn: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: Radius.lg,
+    paddingVertical: 14,
     alignItems: "center",
     borderWidth: 1.5,
     borderColor: Colors.border,
   },
-  cancelText: {
-    fontFamily: "HelveticaNeue-CondensedBold",
-    fontSize: 16,
+  secondaryText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
     color: Colors.textPrimary,
-    letterSpacing: 0.2,
   },
-  confirmBtn: {
+  primaryBtn: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: Radius.lg,
+    paddingVertical: 14,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.navy,
   },
-  confirmText: {
-    fontFamily: "HelveticaNeue-CondensedBold",
-    fontSize: 16,
-    letterSpacing: 0.2,
+  primaryBtnFull: { flex: 1 },
+  primaryBtnDanger: { backgroundColor: "#EF4444" },
+  primaryText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: Typography.base,
+    color: Colors.white,
   },
 });

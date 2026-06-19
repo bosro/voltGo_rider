@@ -3,12 +3,16 @@
  * ─────────────────────────────────────────────────────────────────
  * TanStack Query hooks for the full rider order lifecycle.
  *
- * Changes vs previous version:
- *  - useMarkDelivered appends the file with the correct field name
- *    matching the API spec (`proof_photo`).
- *  - All mutation onSuccess handlers re-use the same setActiveOrder
- *    pattern for consistency.
- *  - No functional changes to query keys or poll intervals.
+ * ── Changes vs previous version ─────────────────────────────────
+ *  FIX A  useMarkArrived, useMarkCollected, useMarkInTransit now have
+ *         a fallback in onSuccess: if the API doesn't return an order
+ *         body they manually flip the status in the store. This keeps
+ *         the store consistent with the server even when the socket is
+ *         slow or the API returns a 200 with no body.
+ *
+ *  Everything else (useOrderOffers, useMyOrders, useActiveOrder,
+ *  useAcceptOrder, useDeclineOrder, useMarkDelivered) is unchanged
+ *  from your existing file.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,14 +23,9 @@ import { useRiderStore } from "../../store/riderStore";
 import { RIDER_QUERY_KEYS } from "./useRider";
 import * as FileSystem from "expo-file-system/legacy";
 
-// function getOfferPollInterval(isOnline: boolean): number | false {
-//   if (!isOnline) return false;
-//   return socketService.isConnected ? 30_000 : 5_000;
-// }
-
 function getOfferPollInterval(isOnline: boolean): number | false {
   if (!isOnline) return false;
-  return 5_000; // ← always 5s, don't depend on broken socket
+  return 5_000;
 }
 
 // ── Offers (socket-primary, REST fallback) ────────────────────────────────────
@@ -61,9 +60,7 @@ export function useMyOrders() {
     queryFn: async () => {
       const res = await ordersApi.getMyOrders();
       const raw = res.data?.data as any;
-      // API returns { total, page, pages, items: Order[] }
       if (raw && Array.isArray(raw.items)) return raw.items as Order[];
-      // Fallback if API ever returns a bare array
       if (Array.isArray(raw)) return raw as Order[];
       return [] as Order[];
     },
@@ -130,7 +127,7 @@ export function useDeclineOrder() {
 // ── Arrived at pickup ─────────────────────────────────────────────────────────
 export function useMarkArrived() {
   const queryClient = useQueryClient();
-  const { setActiveOrder } = useRiderStore();
+  const { activeOrder, setActiveOrder } = useRiderStore();
 
   return useMutation({
     mutationFn: (id: string) => ordersApi.markArrived(id),
@@ -142,6 +139,10 @@ export function useMarkArrived() {
           RIDER_QUERY_KEYS.activeOrder,
           order,
         );
+      } else if (activeOrder) {
+        // FIX A: API returned no body — manually flip status so the
+        // store stays consistent and the CTA updates immediately.
+        setActiveOrder({ ...activeOrder, status: "arrived" });
       }
     },
   });
@@ -150,7 +151,7 @@ export function useMarkArrived() {
 // ── Collected ─────────────────────────────────────────────────────────────────
 export function useMarkCollected() {
   const queryClient = useQueryClient();
-  const { setActiveOrder } = useRiderStore();
+  const { activeOrder, setActiveOrder } = useRiderStore();
 
   return useMutation({
     mutationFn: (id: string) => ordersApi.markCollected(id),
@@ -162,6 +163,9 @@ export function useMarkCollected() {
           RIDER_QUERY_KEYS.activeOrder,
           order,
         );
+      } else if (activeOrder) {
+        // FIX A: fallback status flip
+        setActiveOrder({ ...activeOrder, status: "collected" });
       }
     },
   });
@@ -170,7 +174,7 @@ export function useMarkCollected() {
 // ── In transit ────────────────────────────────────────────────────────────────
 export function useMarkInTransit() {
   const queryClient = useQueryClient();
-  const { setActiveOrder } = useRiderStore();
+  const { activeOrder, setActiveOrder } = useRiderStore();
 
   return useMutation({
     mutationFn: (id: string) => ordersApi.markInTransit(id),
@@ -182,6 +186,9 @@ export function useMarkInTransit() {
           RIDER_QUERY_KEYS.activeOrder,
           order,
         );
+      } else if (activeOrder) {
+        // FIX A: fallback status flip
+        setActiveOrder({ ...activeOrder, status: "in_transit" });
       }
     },
   });
@@ -209,3 +216,4 @@ export function useMarkDelivered() {
     },
   });
 }
+

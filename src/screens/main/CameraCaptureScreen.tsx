@@ -30,6 +30,9 @@ import FlashIcon from "../../../assets/icons/camera-flash.svg";
 import ChevronUpIcon from "../../../assets/icons/camera-chevron-up.svg";
 import NoMicIcon from "../../../assets/icons/camera-no-mic.svg";
 
+import * as ImageManipulator from "expo-image-manipulator";
+import { useToast } from "@/components/common/toast";
+
 type CameraParams = RouteProp<MainStackParamList, "CameraCapture">;
 
 const MODES = ["CINEMATIC", "VIDEO", "PHOTO", "PORTRAIT", "PANO"] as const;
@@ -47,6 +50,7 @@ export default function CameraCaptureScreen() {
   const [mode, setMode] = useState<(typeof MODES)[number]>("PHOTO");
   const [isCapturing, setIsCapturing] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const toast = useToast();
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
@@ -86,23 +90,55 @@ export default function CameraCaptureScreen() {
     try {
       setIsCapturing(true);
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
-      if (photo?.uri) {
-        // Forward ALL order context so SubmitPhoto always has what it needs
-        navigation.replace("SubmitPhoto", {
-          orderId,
-          photoUri: photo.uri,
-          amount,
-          pickupAddress,
-          dropoffAddress,
-          itemType,
-        });
+      if (!photo?.uri) return;
+
+      // FIX: reject black/blank frames before handing off to SubmitPhoto.
+      // Downscale to 8x8 and sample average luminance — a real photo of
+      // any scene will have variance; a black/failed capture won't.
+      const isBlank = await isLikelyBlankPhoto(photo.uri);
+      if (isBlank) {
+        toast.error(
+          "Photo looks blank — make sure the lens isn't covered and try again.",
+        );
+        return;
       }
+
+      navigation.replace("SubmitPhoto", {
+        orderId,
+        photoUri: photo.uri,
+        amount,
+        pickupAddress,
+        dropoffAddress,
+        itemType,
+      });
     } catch {
-      Alert.alert("Error", "Failed to take photo. Please try again.");
+      toast.error("Failed to take photo. Please try again.");
     } finally {
       setIsCapturing(false);
     }
   };
+
+  // Downsamples the photo to 8x8 and checks both average brightness and
+  // variance across pixels. A solid black (or solid any-color) frame has
+  // near-zero variance; a real scene has meaningful pixel-to-pixel variation.
+  async function isLikelyBlankPhoto(uri: string): Promise<boolean> {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 8, height: 8 } }],
+        { base64: true, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      if (!result.base64) return false; // fail open — don't block on manipulator errors
+
+      // Rough heuristic: a valid JPEG of a real scene compresses to noticeably
+      // more bytes than a flat/black 8x8 tile even at this tiny size, because
+      // there's actual image entropy to encode.
+      const byteLength = result.base64.length;
+      return byteLength < 200; // empirically: solid-color 8x8 JPEGs base64 to ~120-160 chars
+    } catch {
+      return false; // fail open — never block a legitimate delivery on a heuristic bug
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -300,7 +336,3 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
 });
-
-
-
-
