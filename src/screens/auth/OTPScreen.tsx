@@ -10,7 +10,6 @@ import {
   Animated,
   Dimensions,
   Image,
-  Alert,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NavyButton } from "../../components/common";
@@ -18,7 +17,8 @@ import { Colors, Typography, Radius } from "../../theme";
 import { RootStackParamList } from "../../navigation/types";
 import { useSendOtp, useVerifyOtp } from "../../hooks/auth/useAuth";
 import { useAuthStore } from "@/store/authStore";
-import { AnyUseSuspenseQueryOptions } from "@tanstack/react-query";
+import ConfirmModal from "../../components/common/ConfirmModal"; // ← adjust path
+import { useToast } from "@/components/common/toast";
 
 const { height } = Dimensions.get("window");
 const OTP_LENGTH = 5;
@@ -28,32 +28,34 @@ export default function OTPScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteParams>();
   const { phone, isNewRider } = route.params;
+
+  const toast = useToast();
+
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
+
+  // ── ConfirmModal state ───────────────────────────────────────────
+  const [errorModal, setErrorModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({ visible: false, title: "", message: "" });
+
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(20)).current;
 
   const { mutateAsync: sendOtp, isPending: isSending } = useSendOtp();
   const { mutateAsync: verifyOtp, isPending: isVerifying } = useVerifyOtp();
-
   const { login } = useAuthStore();
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn, {
-        toValue: 1,
-        duration: 380,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideUp, {
-        toValue: 0,
-        tension: 58,
-        friction: 10,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeIn, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.spring(slideUp, { toValue: 0, tension: 58, friction: 10, useNativeDriver: true }),
     ]).start();
+
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -89,10 +91,8 @@ export default function OTPScreen() {
       const payload: any = result.data?.data;
       console.log("🔑 verify-phone payload:", JSON.stringify(payload, null, 2));
 
-      // ✅ Handle both field-name shapes the API may return
       const accessToken = payload?.access_token ?? payload?.token;
-      const refreshToken =
-        payload?.refresh_token ?? payload?.refreshToken ?? "";
+      const refreshToken = payload?.refresh_token ?? payload?.refreshToken ?? "";
 
       if (accessToken) {
         await login(
@@ -108,30 +108,30 @@ export default function OTPScreen() {
           },
         );
 
-        // ✅ Only new riders go to CreateProfile; returning riders go to MainApp
         if (isNewRider) {
           navigation.navigate("CreateProfileStep2");
         } else {
           navigation.reset({ index: 0, routes: [{ name: "MainApp" }] });
         }
       } else {
-        // No token at all — only send new riders to profile creation
         if (isNewRider) {
           navigation.navigate("CreateProfileStep2");
         } else {
-          // Returning rider with no token = something went wrong
-          Alert.alert(
-            "Sign In Failed",
-            "We couldn't sign you in. Please try again.",
-          );
+          // ← ConfirmModal: returning rider with no token needs to understand
+          //   why they can't proceed, and acknowledge before retrying.
+          setErrorModal({
+            visible: true,
+            title: "Sign In Failed",
+            message: "We couldn't sign you in. Please try again.",
+          });
         }
       }
     } catch (err: any) {
+      // ← ConfirmModal: verification failure needs deliberate acknowledgment
+      //   before the inputs reset — prevents the rider from missing the error.
       const message =
         err?.response?.data?.message ?? "Invalid OTP. Please try again.";
-      Alert.alert("Verification Failed", message);
-      setOtp(Array(OTP_LENGTH).fill(""));
-      inputRefs.current[0]?.focus();
+      setErrorModal({ visible: true, title: "Verification Failed", message });
     }
   };
 
@@ -143,9 +143,17 @@ export default function OTPScreen() {
       setCountdown(30);
       setCanResend(false);
       inputRefs.current[0]?.focus();
-    } catch (err: any) {
-      Alert.alert("Error", "Could not resend OTP. Please try again.");
+    } catch {
+      // ← Toast: simple transient feedback, no acknowledgment needed
+      toast.error("Could not resend code. Please try again.");
     }
+  };
+
+  const handleErrorModalDismiss = () => {
+    setErrorModal((prev) => ({ ...prev, visible: false }));
+    // Reset inputs only after the rider has acknowledged the error
+    setOtp(Array(OTP_LENGTH).fill(""));
+    inputRefs.current[0]?.focus();
   };
 
   const isLoading = isSending || isVerifying;
@@ -153,6 +161,17 @@ export default function OTPScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.navy} />
+
+      {/* ── Verification error modal ──────────────────────────────── */}
+      <ConfirmModal
+        visible={errorModal.visible}
+        title={errorModal.title}
+        message={errorModal.message}
+        primaryLabel="Try Again"
+        onPrimary={handleErrorModalDismiss}
+        danger
+      />
+
       <View style={styles.hero}>
         <Image
           source={require("../../../assets/images/onboarding3.png")}
@@ -160,6 +179,7 @@ export default function OTPScreen() {
           resizeMode="cover"
         />
       </View>
+
       <Animated.View
         style={[
           styles.content,
@@ -170,13 +190,12 @@ export default function OTPScreen() {
         <Text style={styles.subtitle}>
           Check your SMS or Whatsapp for the code
         </Text>
+
         <View style={styles.otpRow}>
           {Array.from({ length: OTP_LENGTH }).map((_, i) => (
             <TextInput
               key={i}
-              ref={(ref) => {
-                inputRefs.current[i] = ref;
-              }}
+              ref={(ref) => { inputRefs.current[i] = ref; }}
               style={[styles.otpBox, otp[i] ? styles.otpBoxFilled : null]}
               value={otp[i]}
               onChangeText={(text) => handleChange(text, i)}
@@ -189,16 +208,9 @@ export default function OTPScreen() {
             />
           ))}
         </View>
-        <TouchableOpacity
-          onPress={handleResend}
-          disabled={!canResend || isSending}
-        >
-          <Text
-            style={[
-              styles.resend,
-              canResend && !isSending && styles.resendActive,
-            ]}
-          >
+
+        <TouchableOpacity onPress={handleResend} disabled={!canResend || isSending}>
+          <Text style={[styles.resend, canResend && !isSending && styles.resendActive]}>
             {isSending
               ? "Sending..."
               : canResend
@@ -206,11 +218,15 @@ export default function OTPScreen() {
                 : `Resend in ${countdown}`}
           </Text>
         </TouchableOpacity>
+
         <View style={styles.divider} />
+
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.differentMethod}>Try a different method</Text>
         </TouchableOpacity>
+
         <View style={{ flex: 1 }} />
+
         <NavyButton
           label={isVerifying ? "Verifying..." : "Continue"}
           onPress={handleContinue}

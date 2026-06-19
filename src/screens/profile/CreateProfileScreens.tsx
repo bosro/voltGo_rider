@@ -7,7 +7,6 @@ import {
   ScrollView,
   Animated,
   Dimensions,
-  Alert,
   Image,
   TouchableOpacity,
 } from "react-native";
@@ -27,6 +26,7 @@ import { RootStackParamList } from "../../navigation/types";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSubmitKyc, buildKycFormData } from "../../hooks/auth/useKyc";
 import { useAuthStore } from "../../store/authStore";
+import ConfirmModal from "../../components/common/ConfirmModal"; // ← adjust path
 
 const heroImage = require("../../../assets/images/create-profile-hero.png");
 
@@ -36,6 +36,7 @@ import UploadCloudIcon from "../../../assets/icons/upload-cloud.svg";
 import PlusWhiteIcon from "../../../assets/icons/plus-white.svg";
 import WalletIcon from "../../../assets/icons/wallet.svg";
 import ChevronDownIcon from "../../../assets/icons/chevron-down-sm.svg";
+import { useToast } from "@/components/common/toast";
 
 const { height } = Dimensions.get("window");
 const HERO_H = height * 0.3;
@@ -137,10 +138,10 @@ const shellS = StyleSheet.create({
   },
 });
 
-// ── Step 1 — ID & Vehicle (was Step 2) ────────────────────────────────────────
-// Navigator still calls this "CreateProfileStep2" so no route name changes needed
+// ── Step 1 — ID & Vehicle ─────────────────────────────────────────────────────
 export function CreateProfileStep2Screen() {
   const navigation = useNavigation<any>();
+  const toast = useToast();
   const [ghanaCardNo, setGhanaCardNo] = useState("");
   const [licenseNo, setLicenseNo] = useState("");
   const [vehicleTypePreference, setVehicleTypePreference] = useState("");
@@ -152,13 +153,15 @@ export function CreateProfileStep2Screen() {
     <ProfileShell
       step={1}
       onNext={() => {
-        if (!ghanaCardNo.trim())
-          return Alert.alert(
-            "Required",
-            "Please enter your Ghana Card number.",
-          );
-        if (!vehicleTypePreference)
-          return Alert.alert("Required", "Please select a vehicle type.");
+        // ← Toast: quick validation, field is visible to fix immediately
+        if (!ghanaCardNo.trim()) {
+          toast.error("Please enter your Ghana Card number.");
+          return;
+        }
+        if (!vehicleTypePreference) {
+          toast.error("Please select a vehicle type.");
+          return;
+        }
         navigation.navigate("CreateProfileStep3", {
           ghanaCardNo,
           licenseNo,
@@ -236,21 +239,20 @@ export function CreateProfileStep2Screen() {
   );
 }
 
-// ── Step 2 — Document Upload (was Step 3) ─────────────────────────────────────
+// ── Step 2 — Document Upload ───────────────────────────────────────────────────
 type Step3P = RouteProp<RootStackParamList, "CreateProfileStep3">;
 export function CreateProfileStep3Screen() {
   const navigation = useNavigation<any>();
   const route = useRoute<Step3P>();
+  const toast = useToast();
   const [ghanaCardUri, setGhanaCardUri] = useState<string | undefined>();
   const [profilePhotoUri, setProfilePhotoUri] = useState<string | undefined>();
 
   const pickImage = async (setter: (uri: string) => void) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Permission needed",
-        "Please allow photo access in Settings.",
-      );
+      // ← Toast: permission notice, rider acts in Settings — no blocking needed
+      toast.error("Please allow photo access in Settings.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -267,10 +269,15 @@ export function CreateProfileStep3Screen() {
     <ProfileShell
       step={2}
       onNext={() => {
-        if (!ghanaCardUri)
-          return Alert.alert("Required", "Please upload your Ghana Card.");
-        if (!profilePhotoUri)
-          return Alert.alert("Required", "Please upload a profile photo.");
+        // ← Toast: inline validation
+        if (!ghanaCardUri) {
+          toast.error("Please upload your Ghana Card.");
+          return;
+        }
+        if (!profilePhotoUri) {
+          toast.error("Please upload a profile photo.");
+          return;
+        }
         navigation.navigate("CreateProfileStep4", {
           ...route.params,
           ghanaCardUri,
@@ -298,18 +305,25 @@ export function CreateProfileStep3Screen() {
   );
 }
 
-// ── Step 3 — Payout Account + Submit KYC (was Step 4) ─────────────────────────
+// ── Step 3 — Payout Account + Submit KYC ──────────────────────────────────────
 type Step4P = RouteProp<RootStackParamList, "CreateProfileStep4">;
 export function CreateProfileStep4Screen() {
   const navigation = useNavigation<any>();
   const route = useRoute<Step4P>();
+  const toast = useToast();
   const [momoNumber, setMomoNumber] = useState("");
   const [momoProvider, setMomoProvider] = useState("");
   const [showProviderModal, setShowProviderModal] = useState(false);
 
+  // ← ConfirmModal: KYC submission error needs clear explanation before retry,
+  //   especially since the rider may need to go back multiple steps to fix data.
+  const [errorModal, setErrorModal] = useState<{
+    visible: boolean;
+    message: string;
+  }>({ visible: false, message: "" });
+
   const { mutateAsync: submitKyc, isPending } = useSubmitKyc();
 
-  // API accepts: mtn, vodafone, airteltigo
   const providerOptions = [
     { key: "mtn", label: "MTN Mobile Money" },
     { key: "vodafone", label: "Vodafone Cash" },
@@ -317,10 +331,15 @@ export function CreateProfileStep4Screen() {
   ];
 
   const handleComplete = async () => {
-    if (!momoNumber.trim())
-      return Alert.alert("Required", "Please enter your MoMo number.");
-    if (!momoProvider)
-      return Alert.alert("Required", "Please select a MoMo provider.");
+    // ← Toast: inline validation — fields are visible to correct
+    if (!momoNumber.trim()) {
+      toast.error("Please enter your MoMo number.");
+      return;
+    }
+    if (!momoProvider) {
+      toast.error("Please select a MoMo provider.");
+      return;
+    }
 
     const {
       ghanaCardNo,
@@ -331,18 +350,21 @@ export function CreateProfileStep4Screen() {
     } = route.params;
 
     if (!ghanaCardUri || !profilePhotoUri) {
-      return Alert.alert(
-        "Error",
-        "Missing document uploads. Please go back and upload them.",
-      );
+      // ← ConfirmModal: missing uploads from a previous step — rider needs to
+      //   understand they must go back, not just re-try the current field.
+      setErrorModal({
+        visible: true,
+        message: "Missing document uploads. Please go back and upload them.",
+      });
+      return;
     }
 
-    // Validate ghana_card_no is present before building form
     if (!ghanaCardNo?.trim()) {
-      return Alert.alert(
-        "Error",
-        "Ghana Card number is missing. Please go back and enter it.",
-      );
+      setErrorModal({
+        visible: true,
+        message: "Ghana Card number is missing. Please go back and enter it.",
+      });
+      return;
     }
 
     try {
@@ -361,7 +383,9 @@ export function CreateProfileStep4Screen() {
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ?? "Submission failed. Please try again.";
-      Alert.alert("KYC Error", msg);
+      // ← ConfirmModal: KYC failure is a significant error — rider needs to
+      //   understand what went wrong before deciding whether to retry or go back.
+      setErrorModal({ visible: true, message: msg });
     }
   };
 
@@ -373,6 +397,16 @@ export function CreateProfileStep4Screen() {
       nextLabel="Complete"
       isLoading={isPending}
     >
+      {/* ── KYC error modal ────────────────────────────────────────── */}
+      <ConfirmModal
+        visible={errorModal.visible}
+        title="Submission Error"
+        message={errorModal.message}
+        primaryLabel="OK"
+        onPrimary={() => setErrorModal({ visible: false, message: "" })}
+        danger
+      />
+
       <Text style={stepS.subtitle}>
         Add your Mobile Money account to receive earnings.
       </Text>
@@ -454,11 +488,7 @@ const dropdownS = StyleSheet.create({
     fontSize: Typography.base,
     color: Colors.textPrimary,
   },
-  cancel: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-  },
+  cancel: { paddingVertical: 14, paddingHorizontal: 16, alignItems: "center" },
   cancelText: {
     fontFamily: "Poppins-SemiBold",
     fontSize: Typography.base,

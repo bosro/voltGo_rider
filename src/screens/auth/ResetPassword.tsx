@@ -9,7 +9,6 @@ import {
   ScrollView,
   Animated,
   Image,
-  Alert,
   Platform,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -18,10 +17,11 @@ import { Colors, Typography, Radius } from "../../theme";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useResetPassword, useForgotPassword } from "../../hooks/auth/useAuth";
 import { RootStackParamList } from "../../navigation/types";
+import ConfirmModal from "../../components/common/ConfirmModal"; // ← adjust path
+import { useToast } from "@/components/common/toast";
 
 type ResetPasswordRouteProp = RouteProp<RootStackParamList, "ResetPassword">;
 
-// ── OTP digit boxes (reuses same pattern as your OTPScreen) ──────────────────
 const OTP_LENGTH = 5;
 
 export default function ResetPasswordScreen() {
@@ -29,12 +29,17 @@ export default function ResetPasswordScreen() {
   const route = useRoute<ResetPasswordRouteProp>();
   const { phone } = route.params;
 
+  const toast = useToast();
+
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // ── Success modal — needs a deliberate "Sign In" tap to navigate ──
+  const [successModal, setSuccessModal] = useState(false);
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -60,33 +65,27 @@ export default function ResetPasswordScreen() {
     ]).start();
   }, []);
 
-  // Countdown timer for resend button
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  // ── OTP input handlers ─────────────────────────────────────────────────────
   const handleOtpChange = (text: string, index: number) => {
     const digit = text.replace(/[^0-9]/g, "").slice(-1);
     const next = [...otp];
     next[index] = digit;
     setOtp(next);
-    if (digit && index < OTP_LENGTH - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    if (digit && index < OTP_LENGTH - 1) inputRefs.current[index + 1]?.focus();
   };
 
   const handleOtpKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === "Backspace" && !otp[index] && index > 0) {
+    if (e.nativeEvent.key === "Backspace" && !otp[index] && index > 0)
       inputRefs.current[index - 1]?.focus();
-    }
   };
 
   const otpValue = otp.join("");
 
-  // ── Resend ─────────────────────────────────────────────────────────────────
   const handleResend = async () => {
     if (resendCooldown > 0 || isResending) return;
     try {
@@ -94,50 +93,42 @@ export default function ResetPasswordScreen() {
       setResendCooldown(60);
       setOtp(Array(OTP_LENGTH).fill(""));
       inputRefs.current[0]?.focus();
-      Alert.alert(
-        "Code sent",
-        "A new reset code has been sent to your number.",
-      );
+      // ← Toast: lightweight confirmation that the code was sent, no action needed
+      toast.success("A new reset code has been sent to your number.");
     } catch (err: any) {
+      // ← Toast: transient error, rider stays on screen to retry
       const message =
         err?.response?.data?.message ?? "Could not resend. Try again.";
-      Alert.alert("Error", message);
+      toast.error(message);
     }
   };
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleReset = async () => {
+    // ── Validation — toast keeps rider in context to fix the field ────
     if (otpValue.length !== OTP_LENGTH) {
-      Alert.alert("Error", "Please enter the 5-digit code.");
+      toast.error("Please enter the 5-digit code.");
       return;
     }
     if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters.");
+      toast.error("Password must be at least 6 characters.");
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
 
     try {
       await resetPassword({ phone, otp: otpValue, password });
-      Alert.alert(
-        "Password reset",
-        "Your password has been updated. Please sign in.",
-        [
-          {
-            text: "Sign In",
-            onPress: () =>
-              navigation.reset({ index: 0, routes: [{ name: "PhoneEntry" }] }),
-          },
-        ],
-      );
+      // ← ConfirmModal: success state the rider must acknowledge before
+      //   navigating away — the CTA ("Sign In") drives the next action.
+      setSuccessModal(true);
     } catch (err: any) {
+      // ← Toast: reset failure is transient; rider corrects code and retries
       const message =
         err?.response?.data?.message ??
         "Reset failed. Check your code and try again.";
-      Alert.alert("Error", message);
+      toast.error(message);
     }
   };
 
@@ -150,6 +141,19 @@ export default function ResetPasswordScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.navy} />
+
+      {/* ── Password reset success modal ──────────────────────────── */}
+      <ConfirmModal
+        visible={successModal}
+        title="Password Reset"
+        message="Your password has been updated. Please sign in with your new password."
+        primaryLabel="Sign In"
+        onPrimary={() => {
+          setSuccessModal(false);
+          navigation.reset({ index: 0, routes: [{ name: "PhoneEntry" }] });
+        }}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -175,7 +179,6 @@ export default function ResetPasswordScreen() {
             <Text style={styles.phoneHighlight}>+233 {phone.slice(1)}</Text>
           </Text>
 
-          {/* OTP boxes */}
           <View style={styles.otpRow}>
             {otp.map((digit, i) => (
               <TextInput
@@ -194,7 +197,6 @@ export default function ResetPasswordScreen() {
             ))}
           </View>
 
-          {/* Resend */}
           <View style={styles.resendRow}>
             <Text style={styles.resendLabel}>Didn't receive it? </Text>
             <TouchableOpacity
@@ -218,7 +220,6 @@ export default function ResetPasswordScreen() {
 
           <View style={styles.divider} />
 
-          {/* New password */}
           <Text style={styles.fieldLabel}>New password</Text>
           <View style={styles.passwordRow}>
             <TextInput
@@ -245,7 +246,6 @@ export default function ResetPasswordScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Password strength hints */}
           {password.length > 0 && (
             <View style={{ marginTop: -8, marginBottom: 12 }}>
               <Text
@@ -266,7 +266,6 @@ export default function ResetPasswordScreen() {
             </View>
           )}
 
-          {/* Confirm password */}
           <Text style={styles.fieldLabel}>Confirm password</Text>
           <View style={styles.passwordRow}>
             <TextInput
@@ -293,7 +292,6 @@ export default function ResetPasswordScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Match indicator */}
           {confirmPassword.length > 0 && (
             <View style={{ marginTop: -8, marginBottom: 12 }}>
               <Text
@@ -341,11 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.navy,
   },
   heroImage: { width: "100%", height: "100%" },
-  content: {
-    paddingHorizontal: 22,
-    paddingTop: 28,
-    paddingBottom: 40,
-  },
+  content: { paddingHorizontal: 22, paddingTop: 28, paddingBottom: 40 },
   heading: {
     fontFamily: "HelveticaNeue-CondensedBold",
     fontSize: 26,
@@ -361,19 +355,15 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 28,
   },
-  phoneHighlight: {
-    fontFamily: "Poppins-SemiBold",
-    color: Colors.navy,
-  },
-  // OTP
+  phoneHighlight: { fontFamily: "Poppins-SemiBold", color: Colors.navy },
   otpRow: {
     flexDirection: "row",
     justifyContent: "center",
-     gap: 8,  
+    gap: 8,
     marginBottom: 16,
   },
   otpBox: {
-    width: 44, // ← slightly narrower
+    width: 44,
     height: 52,
     borderRadius: Radius.lg,
     backgroundColor: Colors.inputBg,
@@ -384,10 +374,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-SemiBold",
     color: Colors.textPrimary,
   },
-  otpBoxFilled: {
-    borderColor: Colors.navy,
-    backgroundColor: Colors.white,
-  },
+  otpBoxFilled: { borderColor: Colors.navy, backgroundColor: Colors.white },
   resendRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -405,15 +392,8 @@ const styles = StyleSheet.create({
     color: Colors.navy,
     textDecorationLine: "underline",
   },
-  resendDisabled: {
-    color: Colors.textMuted,
-    textDecorationLine: "none",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.divider,
-    marginBottom: 22,
-  },
+  resendDisabled: { color: Colors.textMuted, textDecorationLine: "none" },
+  divider: { height: 1, backgroundColor: Colors.divider, marginBottom: 22 },
   fieldLabel: {
     fontFamily: "Poppins-SemiBold",
     fontSize: Typography.sm,

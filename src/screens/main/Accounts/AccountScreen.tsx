@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ const logoutIcon = require("../../../../assets/images/logout.png");
 import { Colors, Typography, Radius, Shadow } from "@/theme";
 import { useAuthStore } from "../../../store/authStore";
 import { useLogoutRider } from "../../../hooks/auth/useAuth";
+import ConfirmModal from "@/components/common/ConfirmModal";
 
 const MENU: { key: string; label: string; Icon: React.FC<SvgProps> }[] = [
   { key: "Profile", label: "Profile", Icon: MenuProfileIcon },
@@ -42,21 +43,16 @@ export default function AccountScreen() {
   const navigation = useNavigation<any>();
   const { rider } = useAuthStore();
   const { mutateAsync: logout, isPending } = useLogoutRider();
+  const [logoutVisible, setLogoutVisible] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert("Log out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          navigation.dispatch(
-            CommonActions.reset({ index: 0, routes: [{ name: "PhoneEntry" }] }),
-          );
-        },
-      },
-    ]);
+  const handleLogout = () => setLogoutVisible(true);
+
+  const confirmLogout = async () => {
+    await logout();
+    setLogoutVisible(false);
+    navigation.dispatch(
+      CommonActions.reset({ index: 0, routes: [{ name: "PhoneEntry" }] }),
+    );
   };
 
   return (
@@ -112,6 +108,18 @@ export default function AccountScreen() {
           <ChevronRightIcon width={8} height={14} />
         </TouchableOpacity>
       </View>
+
+      <ConfirmModal
+        visible={logoutVisible}
+        title="Log out"
+        message="Are you sure you want to log out?"
+        primaryLabel="Log out"
+        onPrimary={confirmLogout}
+        secondaryLabel="Cancel"
+        onSecondary={() => setLogoutVisible(false)}
+        loading={isPending}
+        danger
+      />
     </SafeAreaView>
   );
 }

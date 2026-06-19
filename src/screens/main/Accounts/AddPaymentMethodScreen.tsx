@@ -1,14 +1,9 @@
 /**
  * AddPaymentMethodScreen.tsx
- * ─────────────────────────────────────────────────────────────────
- * Lets the rider add a Mobile Money account or a card.
- * Tabs: MoMo | Card
- * Calls POST /payment-methods via useAddPayment hook.
  */
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -24,14 +19,14 @@ import { SvgXml } from "react-native-svg";
 import { useAddPayment } from "../../../hooks/rider/usePayments";
 import { NavyButton, InputField, FieldLabel } from "../../../components/common";
 import { Colors, Radius, Typography } from "../../../theme";
+import ConfirmModal from "../../../components/common/ConfirmModal"; // ← adjust path
+import { useToast } from "@/components/common/toast";
 
-// ── Inline SVGs ───────────────────────────────────────────────────────────────
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const phoneSvg = `<svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="1" width="14" height="18" rx="3" stroke="#5A6478" stroke-width="1.5" fill="none"/><circle cx="9" cy="16" r="1" fill="#5A6478"/></svg>`;
 const userSvg = `<svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="5" r="4" stroke="#5A6478" stroke-width="1.5" fill="none"/><path d="M1 19C1 15.7 5.1 13 9 13C12.9 13 17 15.7 17 19" stroke="#5A6478" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>`;
 const cardSvg = `<svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="18" height="14" rx="2" stroke="#5A6478" stroke-width="1.5" fill="none"/><rect x="1" y="5" width="18" height="3" fill="#5A6478" opacity="0.15"/><rect x="3" y="10" width="4" height="2" rx="0.5" fill="#5A6478"/></svg>`;
 
-// ── MoMo providers ────────────────────────────────────────────────────────────
 const MOMO_PROVIDERS = [
   { key: "mtn_momo", label: "MTN", color: "#FFCC00", text: "#000" },
   { key: "vodafone_cash", label: "Vodafone", color: "#E60000", text: "#fff" },
@@ -47,23 +42,25 @@ type Tab = "momo" | "card";
 
 export default function AddPaymentMethodScreen() {
   const navigation = useNavigation<any>();
+  const toast = useToast();
   const { mutate: addPayment, isPending } = useAddPayment();
 
   const [activeTab, setActiveTab] = useState<Tab>("momo");
 
-  // MoMo fields
   const [momoProvider, setMomoProvider] = useState<string>("mtn_momo");
   const [momoNumber, setMomoNumber] = useState("");
   const [momoName, setMomoName] = useState("");
 
-  // Card fields
   const [cardNumber, setCardNumber] = useState("");
   const [cardName, setCardName] = useState("");
   const [cardProvider, setCardProvider] = useState<"visa" | "mastercard">(
     "visa",
   );
 
-  // ── Validation ──────────────────────────────────────────────────
+  // ── Success modal — rider must tap OK before navigating back ──────
+  const [successModal, setSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
   const validateMomo = () => {
     if (!momoNumber.trim()) return "Please enter your MoMo number.";
     if (momoNumber.replace(/\s/g, "").length < 10)
@@ -81,19 +78,18 @@ export default function AddPaymentMethodScreen() {
     return null;
   };
 
-  // ── Format card number with spaces ──────────────────────────────
   const handleCardNumberChange = (val: string) => {
     const digits = val.replace(/\D/g, "").slice(0, 16);
     const grouped = digits.match(/.{1,4}/g)?.join(" ") ?? digits;
     setCardNumber(grouped);
   };
 
-  // ── Submit ───────────────────────────────────────────────────────
   const handleSubmit = () => {
     if (activeTab === "momo") {
       const err = validateMomo();
       if (err) {
-        Alert.alert("Validation", err);
+        // ← Toast: inline validation — field is right there to fix
+        toast.error(err);
         return;
       }
 
@@ -106,21 +102,24 @@ export default function AddPaymentMethodScreen() {
         },
         {
           onSuccess: () => {
-            Alert.alert("Success", "Mobile Money account added.", [
-              { text: "OK", onPress: () => navigation.goBack() },
-            ]);
+            // ← ConfirmModal: success confirmation the rider must acknowledge
+            //   before navigating back — prevents accidental back-navigation
+            //   mid-confirmation and gives a clear "OK → done" moment.
+            setSuccessMessage("Mobile Money account added successfully.");
+            setSuccessModal(true);
           },
           onError: (e: any) => {
+            // ← Toast: server error, rider stays in context to retry
             const msg =
               e?.response?.data?.message ?? "Failed to add payment method.";
-            Alert.alert("Error", msg);
+            toast.error(msg);
           },
         },
       );
     } else {
       const err = validateCard();
       if (err) {
-        Alert.alert("Validation", err);
+        toast.error(err);
         return;
       }
 
@@ -133,13 +132,12 @@ export default function AddPaymentMethodScreen() {
         },
         {
           onSuccess: () => {
-            Alert.alert("Success", "Card added successfully.", [
-              { text: "OK", onPress: () => navigation.goBack() },
-            ]);
+            setSuccessMessage("Card added successfully.");
+            setSuccessModal(true);
           },
           onError: (e: any) => {
             const msg = e?.response?.data?.message ?? "Failed to add card.";
-            Alert.alert("Error", msg);
+            toast.error(msg);
           },
         },
       );
@@ -150,7 +148,18 @@ export default function AddPaymentMethodScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
 
-      {/* Header */}
+      {/* ── Payment method added modal ────────────────────────────── */}
+      <ConfirmModal
+        visible={successModal}
+        title="Payment Method Added"
+        message={successMessage}
+        primaryLabel="Done"
+        onPrimary={() => {
+          setSuccessModal(false);
+          navigation.goBack();
+        }}
+      />
+
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -162,7 +171,6 @@ export default function AddPaymentMethodScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabRow}>
         {(["momo", "card"] as Tab[]).map((tab) => (
           <TouchableOpacity
@@ -195,7 +203,6 @@ export default function AddPaymentMethodScreen() {
         >
           {activeTab === "momo" ? (
             <>
-              {/* Provider selector */}
               <FieldLabel label="Provider" />
               <View style={styles.providerRow}>
                 {MOMO_PROVIDERS.map((p) => (
@@ -242,7 +249,6 @@ export default function AddPaymentMethodScreen() {
                 autoCapitalize="words"
               />
 
-              {/* Info box */}
               <View style={styles.infoBox}>
                 <Text style={styles.infoText}>
                   💡 Make sure the name matches your registered MoMo account
@@ -328,7 +334,6 @@ export default function AddPaymentMethodScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -341,7 +346,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.xl,
     color: Colors.textPrimary,
   },
-
   tabRow: {
     flexDirection: "row",
     paddingHorizontal: 22,
@@ -362,9 +366,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   tabTextActive: { color: Colors.navy },
-
   scroll: { paddingHorizontal: 22, paddingTop: 20 },
-
   providerRow: {
     flexDirection: "row",
     gap: 10,
@@ -384,7 +386,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     color: Colors.textPrimary,
   },
-
   infoBox: {
     backgroundColor: "#F0F4FF",
     borderRadius: Radius.md ?? 10,

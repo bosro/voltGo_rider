@@ -9,7 +9,6 @@ import {
   ScrollView,
   Animated,
   Image,
-  Alert,
   Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -20,9 +19,11 @@ import { useForgotPassword } from "../../hooks/auth/useAuth";
 
 import GhanaFlag from "../../../assets/icons/flag-ghana.svg";
 import ChevronDown from "../../../assets/icons/chevron-down-sm.svg";
+import { useToast } from "@/components/common/toast";
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
+  const toast = useToast();
   const [phone, setPhone] = useState("");
 
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -32,24 +33,17 @@ export default function ForgotPasswordScreen() {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn, {
-        toValue: 1,
-        duration: 380,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideUp, {
-        toValue: 0,
-        tension: 58,
-        friction: 10,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeIn, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.spring(slideUp, { toValue: 0, tension: 58, friction: 10, useNativeDriver: true }),
     ]).start();
   }, []);
 
   const handleSendCode = async () => {
     const trimmed = phone.trim();
+
+    // ← Toast: quick inline validation, user stays in context to fix it
     if (trimmed.length !== 9) {
-      Alert.alert("Error", "Please enter a valid 9-digit phone number.");
+      toast.error("Please enter a valid 9-digit phone number.");
       return;
     }
 
@@ -59,10 +53,10 @@ export default function ForgotPasswordScreen() {
       await forgotPassword(fullPhone);
       navigation.navigate("ResetPassword", { phone: fullPhone });
     } catch (err: any) {
+      // ← Toast: transient server error, no blocking action needed
       const message =
-        err?.response?.data?.message ??
-        "Something went wrong. Please try again.";
-      Alert.alert("Error", message);
+        err?.response?.data?.message ?? "Something went wrong. Please try again.";
+      toast.error(message);
     }
   };
 
@@ -88,7 +82,6 @@ export default function ForgotPasswordScreen() {
             { opacity: fadeIn, transform: [{ translateY: slideUp }] },
           ]}
         >
-          {/* Icon */}
           <View style={styles.iconWrap}>
             <View style={styles.iconCircle}>
               <Image
@@ -104,7 +97,6 @@ export default function ForgotPasswordScreen() {
             reset code.
           </Text>
 
-          {/* Phone row */}
           <Text style={styles.fieldLabel}>Phone number</Text>
           <View style={styles.phoneRow}>
             <TouchableOpacity style={styles.countryPicker} activeOpacity={0.8}>
@@ -159,15 +151,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.navy,
   },
   heroImage: { width: "100%", height: "100%" },
-  content: {
-    paddingHorizontal: 22,
-    paddingTop: 28,
-    paddingBottom: 40,
-  },
-  iconWrap: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
+  content: { paddingHorizontal: 22, paddingTop: 28, paddingBottom: 40 },
+  iconWrap: { alignItems: "center", marginBottom: 20 },
   iconCircle: {
     width: 64,
     height: 64,
@@ -217,11 +202,7 @@ const styles = StyleSheet.create({
     borderRightColor: Colors.border,
     gap: 4,
   },
-  phoneInputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
+  phoneInputWrap: { flexDirection: "row", alignItems: "center", flex: 1 },
   countryCode: {
     fontFamily: "Poppins-Regular",
     fontSize: Typography.base,

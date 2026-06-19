@@ -9,7 +9,6 @@ import {
   ScrollView,
   Animated,
   Image,
-  Alert,
   Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -25,9 +24,11 @@ import {
   useRegisterRider,
   useLoginRider,
 } from "../../hooks/auth/useAuth";
+import { useToast } from "@/components/common/toast";
 
 export default function PhoneEntryScreen() {
   const navigation = useNavigation<any>();
+  const toast = useToast(); // ← replaces Alert.alert
   const [isNewRider, setIsNewRider] = useState(false);
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
@@ -60,7 +61,6 @@ export default function PhoneEntryScreen() {
     ]).start();
   }, []);
 
-  // Reset fields when switching tabs
   const handleTabSwitch = (newRider: boolean) => {
     setIsNewRider(newRider);
     setPhone("");
@@ -71,55 +71,49 @@ export default function PhoneEntryScreen() {
 
   const handleContinue = async () => {
     const trimmed = phone.trim();
+
+    // ── Validation — toast is ideal here: fast, non-blocking ──────────
     if (trimmed.length !== 9) {
-      Alert.alert("Error", "Please enter a valid 9-digit phone number.");
+      toast.error("Please enter a valid 9-digit phone number.");
       return;
     }
 
-    const fullPhone = `0${trimmed}`; // e.g. 0593706706
+    const fullPhone = `0${trimmed}`;
 
     if (isNewRider) {
-      // ── Register flow ──────────────────────────────────────────────
       if (!fullName.trim()) {
-        Alert.alert("Error", "Please enter your full name.");
+        toast.error("Please enter your full name.");
         return;
       }
       if (password.length < 6) {
-        Alert.alert("Error", "Password must be at least 6 characters.");
+        toast.error("Password must be at least 6 characters.");
         return;
       }
 
       try {
-        await register({
-          fullName: fullName.trim(),
-          phone: fullPhone,
-          password,
-        });
+        await register({ fullName: fullName.trim(), phone: fullPhone, password });
         await sendOtp(fullPhone);
         navigation.navigate("OTP", { phone: fullPhone, isNewRider: true });
       } catch (err: any) {
+        // Network / server error — toast keeps the user in context to retry
         const message =
-          err?.response?.data?.message ??
-          "Something went wrong. Please try again.";
-        Alert.alert("Error", message);
+          err?.response?.data?.message ?? "Something went wrong. Please try again.";
+        toast.error(message);
       }
     } else {
-      // ── Sign In flow — direct login, no OTP ───────────────────────
       if (!password) {
-        Alert.alert("Error", "Please enter your password.");
+        toast.error("Please enter your password.");
         return;
       }
 
       try {
-        // useLoginRider's onSuccess handles storing tokens + rider profile
         await loginRider({ phone: fullPhone, password });
-        // Navigate to MainApp — auth store is already updated by onSuccess
         navigation.reset({ index: 0, routes: [{ name: "MainApp" }] });
       } catch (err: any) {
         const message =
           err?.response?.data?.message ??
           "Incorrect phone or password. Please try again.";
-        Alert.alert("Sign In Failed", message);
+        toast.error(message);
       }
     }
   };
@@ -156,17 +150,13 @@ export default function PhoneEntryScreen() {
             { opacity: fadeIn, transform: [{ translateY: slideUp }] },
           ]}
         >
-          {/* Sign In / Register toggle */}
           <View style={styles.toggleRow}>
             <TouchableOpacity
               style={[styles.toggleBtn, !isNewRider && styles.toggleBtnActive]}
               onPress={() => handleTabSwitch(false)}
             >
               <Text
-                style={[
-                  styles.toggleText,
-                  !isNewRider && styles.toggleTextActive,
-                ]}
+                style={[styles.toggleText, !isNewRider && styles.toggleTextActive]}
               >
                 Sign In
               </Text>
@@ -176,10 +166,7 @@ export default function PhoneEntryScreen() {
               onPress={() => handleTabSwitch(true)}
             >
               <Text
-                style={[
-                  styles.toggleText,
-                  isNewRider && styles.toggleTextActive,
-                ]}
+                style={[styles.toggleText, isNewRider && styles.toggleTextActive]}
               >
                 Register
               </Text>
@@ -195,7 +182,6 @@ export default function PhoneEntryScreen() {
               : "Sign in with your phone number and password."}
           </Text>
 
-          {/* Full name — register only */}
           {isNewRider && (
             <TextInput
               style={styles.textInput}
@@ -207,7 +193,6 @@ export default function PhoneEntryScreen() {
             />
           )}
 
-          {/* Phone row */}
           <View style={styles.phoneRow}>
             <TouchableOpacity style={styles.countryPicker} activeOpacity={0.8}>
               <GhanaFlag width={24} height={24} />
@@ -225,7 +210,6 @@ export default function PhoneEntryScreen() {
             </View>
           </View>
 
-          {/* Password row — both sign in and register */}
           <View style={styles.passwordRow}>
             <TextInput
               style={styles.passwordInput}
@@ -254,28 +238,20 @@ export default function PhoneEntryScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Password strength hints — register only */}
           {isNewRider && password.length > 0 && (
             <View style={{ marginTop: -8, marginBottom: 10 }}>
-              <Text
-                style={[styles.hint, password.length >= 8 && styles.hintOk]}
-              >
+              <Text style={[styles.hint, password.length >= 8 && styles.hintOk]}>
                 {password.length >= 8 ? "✓" : "✗"} At least 8 characters
               </Text>
-              <Text
-                style={[styles.hint, /[A-Z]/.test(password) && styles.hintOk]}
-              >
+              <Text style={[styles.hint, /[A-Z]/.test(password) && styles.hintOk]}>
                 {/[A-Z]/.test(password) ? "✓" : "✗"} One uppercase letter
               </Text>
-              <Text
-                style={[styles.hint, /[0-9]/.test(password) && styles.hintOk]}
-              >
+              <Text style={[styles.hint, /[0-9]/.test(password) && styles.hintOk]}>
                 {/[0-9]/.test(password) ? "✓" : "✗"} One number
               </Text>
             </View>
           )}
 
-          {/* Forgot password — sign in only */}
           {!isNewRider && (
             <TouchableOpacity
               onPress={() => navigation.navigate("ForgotPassword")}
@@ -308,11 +284,7 @@ export default function PhoneEntryScreen() {
               onPress={item.onPress}
               activeOpacity={0.8}
             >
-              <item.Icon
-                width={item.w}
-                height={item.h}
-                style={{ marginRight: 12 }}
-              />
+              <item.Icon width={item.w} height={item.h} style={{ marginRight: 12 }} />
               <Text style={styles.socialLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}

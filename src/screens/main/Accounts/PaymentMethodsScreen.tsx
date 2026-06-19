@@ -21,44 +21,46 @@ import {
   useSetDefaultPayment,
 } from "../../../hooks/rider/usePayments";
 import { Colors, Radius, Shadow, Typography } from "../../../theme";
+import { useState } from "react";
+import ConfirmModal from "@/components/common/ConfirmModal";
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 // Map provider key → friendly display name
 const PROVIDER_LABELS: Record<string, string> = {
-  mtn_momo:         "MTN Mobile Money",
-  vodafone_cash:    "Vodafone Cash",
+  mtn_momo: "MTN Mobile Money",
+  vodafone_cash: "Vodafone Cash",
   airteltigo_money: "AirtelTigo Money",
-  visa:             "Visa",
-  mastercard:       "Mastercard",
+  visa: "Visa",
+  mastercard: "Mastercard",
 };
 
 // Map provider key → accent color for the badge
 const PROVIDER_COLORS: Record<string, string> = {
-  mtn_momo:         "#FFCC00",
-  vodafone_cash:    "#E60000",
+  mtn_momo: "#FFCC00",
+  vodafone_cash: "#E60000",
   airteltigo_money: "#FF6600",
-  visa:             "#1A1F71",
-  mastercard:       "#EB001B",
+  visa: "#1A1F71",
+  mastercard: "#EB001B",
 };
 
 const PROVIDER_TEXT: Record<string, string> = {
-  mtn_momo:         "#000",
-  vodafone_cash:    "#fff",
+  mtn_momo: "#000",
+  vodafone_cash: "#fff",
   airteltigo_money: "#fff",
-  visa:             "#fff",
-  mastercard:       "#fff",
+  visa: "#fff",
+  mastercard: "#fff",
 };
 
 // The real shape returned by GET /payment-methods
 interface ApiPaymentMethod {
-  id:             string;
-  type:           "momo" | "card";
-  provider:       string;
-  account_name:   string;
+  id: string;
+  type: "momo" | "card";
+  provider: string;
+  account_name: string;
   account_number: string; // already masked by server e.g. "******0404"
-  is_default:     boolean;
-  is_active:      boolean;
+  is_default: boolean;
+  is_active: boolean;
 }
 
 export default function PaymentMethodsScreen() {
@@ -70,23 +72,21 @@ export default function PaymentMethodsScreen() {
     refetch,
   } = usePaymentMethods();
 
-  const { mutate: setDefault, isPending: isSettingDefault } = useSetDefaultPayment();
-  const { mutate: remove,     isPending: isRemoving }        = useRemovePayment();
+  const { mutate: setDefault, isPending: isSettingDefault } =
+    useSetDefaultPayment();
+  const { mutate: remove, isPending: isRemoving } = useRemovePayment();
+
+  const [pendingRemove, setPendingRemove] = useState<ApiPaymentMethod | null>(
+    null,
+  );
 
   const handleRemove = (item: ApiPaymentMethod) => {
-    const label = PROVIDER_LABELS[item.provider] ?? item.provider;
-    Alert.alert(
-      "Remove Payment Method",
-      `Remove ${label} (${item.account_number})?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => remove(item.id),
-        },
-      ],
-    );
+    setPendingRemove(item);
+  };
+
+  const confirmRemove = () => {
+    if (pendingRemove) remove(pendingRemove.id);
+    setPendingRemove(null);
   };
 
   return (
@@ -110,9 +110,13 @@ export default function PaymentMethodsScreen() {
         </View>
       ) : isError ? (
         <View style={styles.center}>
-          <Text style={styles.emptySubtitle}>Failed to load payment methods.</Text>
+          <Text style={styles.emptySubtitle}>
+            Failed to load payment methods.
+          </Text>
           <TouchableOpacity onPress={() => refetch()} style={{ marginTop: 8 }}>
-            <Text style={{ color: Colors.navy, fontFamily: "Poppins-SemiBold" }}>
+            <Text
+              style={{ color: Colors.navy, fontFamily: "Poppins-SemiBold" }}
+            >
               Retry
             </Text>
           </TouchableOpacity>
@@ -155,14 +159,19 @@ export default function PaymentMethodsScreen() {
             </TouchableOpacity>
           }
           renderItem={({ item }) => {
-            const providerLabel = PROVIDER_LABELS[item.provider] ?? item.provider;
+            const providerLabel =
+              PROVIDER_LABELS[item.provider] ?? item.provider;
             const providerColor = PROVIDER_COLORS[item.provider] ?? Colors.navy;
-            const providerText  = PROVIDER_TEXT[item.provider]   ?? "#fff";
+            const providerText = PROVIDER_TEXT[item.provider] ?? "#fff";
 
             return (
-              <View style={[styles.card, item.is_default && styles.cardDefault]}>
+              <View
+                style={[styles.card, item.is_default && styles.cardDefault]}
+              >
                 {/* Provider colour strip */}
-                <View style={[styles.strip, { backgroundColor: providerColor }]}>
+                <View
+                  style={[styles.strip, { backgroundColor: providerColor }]}
+                >
                   <Text style={[styles.stripText, { color: providerText }]}>
                     {item.type === "momo" ? "MoMo" : "Card"}
                   </Text>
@@ -206,6 +215,22 @@ export default function PaymentMethodsScreen() {
           }}
         />
       )}
+
+      <ConfirmModal
+        visible={!!pendingRemove}
+        title="Remove Payment Method"
+        message={
+          pendingRemove
+            ? `Remove ${PROVIDER_LABELS[pendingRemove.provider] ?? pendingRemove.provider} (${pendingRemove.account_number})?`
+            : undefined
+        }
+        primaryLabel="Remove"
+        onPrimary={confirmRemove}
+        secondaryLabel="Cancel"
+        onSecondary={() => setPendingRemove(null)}
+        loading={isRemoving}
+        danger
+      />
     </SafeAreaView>
   );
 }
