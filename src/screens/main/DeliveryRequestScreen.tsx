@@ -1,5 +1,5 @@
 /**
- * DeliveryRequestScreen.tsx
+ * DeliveryRequestScreen.tsx - RIDER APP
  * ─────────────────────────────────────────────────────────────────
  * Shown when dispatch assigns an order to the rider.
  *
@@ -13,32 +13,29 @@
  *  - OfflinePill used for consistent positioning.
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  Platform,
-  Animated,
   ActivityIndicator,
-  Alert,
+  Animated,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors, Typography, Radius, Shadow } from "../../theme";
-import { MainStackParamList } from "../../navigation/types";
-import { useRoutePolyline } from "../../utils/useRoutePolyline";
-import CUSTOM_MAP_STYLE from "../../utils/mapStyle";
 import { useAcceptOrder, useDeclineOrder } from "../../hooks/rider/useOrders";
+import { MainStackParamList } from "../../navigation/types";
 import { useRiderStore } from "../../store/riderStore";
+import { Colors, Radius, Shadow, Typography } from "../../theme";
+import CUSTOM_MAP_STYLE from "../../utils/mapStyle";
+import { useRoutePolyline } from "../../utils/useRoutePolyline";
 
-import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
-import CloseXIcon from "../../../assets/icons/close-x.svg";
 import OfflinePill from "@/components/common/OfflinePill";
-import { useToast } from "@/components/common/toast";
+import { useToast } from "@/components/common/Toast";
+import CloseXIcon from "../../../assets/icons/close-x.svg";
+import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 
 type RouteParams = RouteProp<MainStackParamList, "DeliveryRequest">;
 

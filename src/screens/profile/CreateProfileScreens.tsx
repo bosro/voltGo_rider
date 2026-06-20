@@ -1,42 +1,41 @@
-import React, { useState, useRef, useEffect } from "react";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  StatusBar,
-  ScrollView,
   Animated,
   Dimensions,
   Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import * as ImagePicker from "expo-image-picker";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  NavyButton,
-  GhostButton,
-  InputField,
   DropdownField,
   FieldLabel,
+  GhostButton,
+  InputField,
+  NavyButton,
   StepDots,
   UploadCard,
 } from "../../components/common";
-import { Colors, Typography, Radius } from "../../theme";
-import { RootStackParamList } from "../../navigation/types";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useSubmitKyc, buildKycFormData } from "../../hooks/auth/useKyc";
-import { useAuthStore } from "../../store/authStore";
 import ConfirmModal from "../../components/common/ConfirmModal"; // ← adjust path
+import { buildKycFormData, useSubmitKyc } from "../../hooks/auth/useKyc";
+import { RootStackParamList } from "../../navigation/types";
+import { Colors, Radius, Typography } from "../../theme";
 
 const heroImage = require("../../../assets/images/create-profile-hero.png");
 
-import IdCardIcon from "../../../assets/icons/id-card.svg";
+import { useToast } from "@/components/common/Toast";
 import BicycleIcon from "../../../assets/icons/bicycle.svg";
-import UploadCloudIcon from "../../../assets/icons/upload-cloud.svg";
-import PlusWhiteIcon from "../../../assets/icons/plus-white.svg";
-import WalletIcon from "../../../assets/icons/wallet.svg";
 import ChevronDownIcon from "../../../assets/icons/chevron-down-sm.svg";
-import { useToast } from "@/components/common/toast";
+import IdCardIcon from "../../../assets/icons/id-card.svg";
+import PlusWhiteIcon from "../../../assets/icons/plus-white.svg";
+import UploadCloudIcon from "../../../assets/icons/upload-cloud.svg";
+import WalletIcon from "../../../assets/icons/wallet.svg";
 
 const { height } = Dimensions.get("window");
 const HERO_H = height * 0.3;

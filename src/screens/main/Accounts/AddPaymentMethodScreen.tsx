@@ -1,7 +1,9 @@
 /**
  * AddPaymentMethodScreen.tsx
  */
-import React, { useState } from "react";
+import { useToast } from "@/components/common/Toast";
+import { useNavigation } from "@react-navigation/native";
+import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,13 +16,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
 import { SvgXml } from "react-native-svg";
-import { useAddPayment } from "../../../hooks/rider/usePayments";
-import { NavyButton, InputField, FieldLabel } from "../../../components/common";
-import { Colors, Radius, Typography } from "../../../theme";
+import { FieldLabel, InputField, NavyButton } from "../../../components/common";
 import ConfirmModal from "../../../components/common/ConfirmModal"; // ← adjust path
-import { useToast } from "@/components/common/toast";
+import { useAddPayment } from "../../../hooks/rider/usePayments";
+import { Colors, Radius, Typography } from "../../../theme";
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const phoneSvg = `<svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="1" width="14" height="18" rx="3" stroke="#5A6478" stroke-width="1.5" fill="none"/><circle cx="9" cy="16" r="1" fill="#5A6478"/></svg>`;

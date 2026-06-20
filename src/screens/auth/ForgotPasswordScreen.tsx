@@ -1,25 +1,25 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useNavigation } from "@react-navigation/native";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  ScrollView,
   Animated,
   Image,
   Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { NavyButton, GhostButton } from "../../components/common";
-import { Colors, Typography, Radius } from "../../theme";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GhostButton, NavyButton } from "../../components/common";
 import { useForgotPassword } from "../../hooks/auth/useAuth";
+import { Colors, Radius, Typography } from "../../theme";
 
-import GhanaFlag from "../../../assets/icons/flag-ghana.svg";
+import { useToast } from "@/components/common/Toast";
 import ChevronDown from "../../../assets/icons/chevron-down-sm.svg";
-import { useToast } from "@/components/common/toast";
+import GhanaFlag from "../../../assets/icons/flag-ghana.svg";
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
@@ -33,8 +33,17 @@ export default function ForgotPasswordScreen() {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 380, useNativeDriver: true }),
-      Animated.spring(slideUp, { toValue: 0, tension: 58, friction: 10, useNativeDriver: true }),
+      Animated.timing(fadeIn, {
+        toValue: 1,
+        duration: 380,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUp, {
+        toValue: 0,
+        tension: 58,
+        friction: 10,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
@@ -55,7 +64,8 @@ export default function ForgotPasswordScreen() {
     } catch (err: any) {
       // ← Toast: transient server error, no blocking action needed
       const message =
-        err?.response?.data?.message ?? "Something went wrong. Please try again.";
+        err?.response?.data?.message ??
+        "Something went wrong. Please try again.";
       toast.error(message);
     }
   };

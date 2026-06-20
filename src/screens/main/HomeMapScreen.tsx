@@ -1,5 +1,5 @@
 /**
- * HomeMapScreen.tsx
+ * HomeMapScreen.tsx - RIDER APP
  * ─────────────────────────────────────────────────────────────────
  * The rider's idle home screen. Shows a live map centred on the
  * rider's position and waits for an incoming order offer.
@@ -287,5 +287,7 @@ const styles = StyleSheet.create({
   },
   riderEmoji: { fontSize: 24 },
 });
+
+
 
 

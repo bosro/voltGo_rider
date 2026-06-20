@@ -1,27 +1,27 @@
 /**
  * ProfileScreen.tsx
  */
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-} from "react-native";
+import { useToast } from "@/components/common/Toast";
 import { useNavigation } from "@react-navigation/native";
-import { SvgXml } from "react-native-svg";
 import * as ImagePicker from "expo-image-picker";
-import { NavyButton, InputField, FieldLabel } from "../../../components/common";
-import { Colors, Typography, Radius } from "../../../theme";
-import { useAuthStore } from "../../../store/authStore";
-import { useRiderProfile } from "../../../hooks/rider/useRider";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SvgXml } from "react-native-svg";
+import { FieldLabel, InputField, NavyButton } from "../../../components/common";
 import ConfirmModal from "../../../components/common/ConfirmModal"; // ← adjust path
-import { useToast } from "@/components/common/toast";
+import { useRiderProfile } from "../../../hooks/rider/useRider";
+import { useAuthStore } from "../../../store/authStore";
+import { Colors, Typography } from "../../../theme";
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const cameraEditSvg = `<svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1H10L11.5 3H14C14.8 3 15.5 3.7 15.5 4.5V12C15.5 12.8 14.8 13.5 14 13.5H2C1.2 13.5 0.5 12.8 0.5 12V4.5C0.5 3.7 1.2 3 2 3H4.5L6 1Z" stroke="white" stroke-width="1.3" fill="none"/><circle cx="8" cy="8" r="2.5" stroke="white" stroke-width="1.3" fill="none"/></svg>`;

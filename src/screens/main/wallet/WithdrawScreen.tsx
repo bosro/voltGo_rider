@@ -13,24 +13,23 @@
  *
  * SVGs needed: back_arrow.svg, wallet_account.svg, chevron_down.svg
  */
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  TextInput,
-  Modal,
-  Alert,
-  ScrollView,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { SvgXml } from "react-native-svg";
-import { Colors, Radius, Shadow, Typography } from "@/theme";
 import { GhostButton, NavyButton } from "@/components/common";
+import { useToast } from "@/components/common/Toast";
+import { Colors, Radius, Shadow, Typography } from "@/theme";
+import { useNavigation } from "@react-navigation/native";
+import { useState } from "react";
+import {
+  Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useToast } from "@/components/common/toast";
+import { SvgXml } from "react-native-svg";
 
 const backArrowSvg = `<svg width="10" height="18" viewBox="0 0 10 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1L1 9L9 17" stroke="#0D1B2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const chevronDownSvg = `<svg width="16" height="10" viewBox="0 0 16 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L8 9L15 1" stroke="#5A6478" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;

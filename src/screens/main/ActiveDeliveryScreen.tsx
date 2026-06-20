@@ -32,44 +32,43 @@
  *         was collected, so the line pointed the wrong way.
  */
 
-import React, {
-  useEffect,
-  useRef,
-  useMemo,
-  useState,
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import {
   useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  Animated,
   ActivityIndicator,
-  Alert,
+  Animated,
   Image,
   Linking,
   Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import { Colors, Typography, Radius, Shadow } from "../../theme";
-import { MainStackParamList } from "../../navigation/types";
-import { useRoutePolyline } from "../../utils/useRoutePolyline";
-import CUSTOM_MAP_STYLE from "../../utils/mapStyle";
 import {
   useMarkArrived,
   useMarkCollected,
   useMarkInTransit,
 } from "../../hooks/rider/useOrders";
+import { Coordinates } from "../../lib/api";
+import { MainStackParamList } from "../../navigation/types";
 import { useRiderStore } from "../../store/riderStore";
-import { Coordinates, ordersApi } from "../../lib/api";
+import { Colors, Radius, Shadow, Typography } from "../../theme";
+import CUSTOM_MAP_STYLE from "../../utils/mapStyle";
+import { useRoutePolyline } from "../../utils/useRoutePolyline";
 
-import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
-import OfflinePill from "@/components/common/OfflinePill";
 import ConfirmModal from "@/components/common/ConfirmModal";
-import { useToast } from "@/components/common/toast";
+import OfflinePill from "@/components/common/OfflinePill";
+import { useToast } from "@/components/common/Toast";
+import UserAvatarIcon from "../../../assets/icons/user-avatar.svg";
 
 type RouteParams = RouteProp<MainStackParamList, "ActiveDelivery">;
 
@@ -323,53 +322,57 @@ export default function ActiveDeliveryScreen() {
   const displayEta = etaMinutes ?? pickupEta ?? null;
 
   const openNavigation = (destLat: number, destLng: number, label: string) => {
-  const destination = `${destLat},${destLng}`;
-  const encodedLabel = encodeURIComponent(label);
+    const destination = `${destLat},${destLng}`;
+    const encodedLabel = encodeURIComponent(label);
 
-  const webFallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+    const webFallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
 
-  if (Platform.OS === "ios") {
-    // Try Google Maps app first (most riders have it, matches in-app routing),
-    // then Apple Maps, then web as the final fallback.
-    const googleMapsUrl = `comgooglemaps://?daddr=${destination}&directionsmode=driving`;
-    const appleMapsUrl = `maps://app?daddr=${destination}&dirflg=d`;
+    if (Platform.OS === "ios") {
+      // Try Google Maps app first (most riders have it, matches in-app routing),
+      // then Apple Maps, then web as the final fallback.
+      const googleMapsUrl = `comgooglemaps://?daddr=${destination}&directionsmode=driving`;
+      const appleMapsUrl = `maps://app?daddr=${destination}&dirflg=d`;
 
-    Linking.canOpenURL(googleMapsUrl)
-      .then((supported) => {
-        if (supported) {
-          return Linking.openURL(googleMapsUrl);
-        }
-        return Linking.canOpenURL(appleMapsUrl).then((appleSupported) => {
-          if (appleSupported) {
-            return Linking.openURL(appleMapsUrl);
+      Linking.canOpenURL(googleMapsUrl)
+        .then((supported) => {
+          if (supported) {
+            return Linking.openURL(googleMapsUrl);
+          }
+          return Linking.canOpenURL(appleMapsUrl).then((appleSupported) => {
+            if (appleSupported) {
+              return Linking.openURL(appleMapsUrl);
+            }
+            return Linking.openURL(webFallbackUrl);
+          });
+        })
+        .catch(() => {
+          Linking.openURL(webFallbackUrl).catch(() => {
+            toast?.error?.(
+              "Couldn't open navigation. Please open Maps manually.",
+            );
+          });
+        });
+    } else {
+      // Android — try the Google Maps turn-by-turn intent, fall back to web
+      // if Google Maps isn't installed (rare but possible on some devices).
+      const androidNavUrl = `google.navigation:q=${destination}&mode=d`;
+
+      Linking.canOpenURL(androidNavUrl)
+        .then((supported) => {
+          if (supported) {
+            return Linking.openURL(androidNavUrl);
           }
           return Linking.openURL(webFallbackUrl);
+        })
+        .catch(() => {
+          Linking.openURL(webFallbackUrl).catch(() => {
+            toast?.error?.(
+              "Couldn't open navigation. Please open Maps manually.",
+            );
+          });
         });
-      })
-      .catch(() => {
-        Linking.openURL(webFallbackUrl).catch(() => {
-          toast?.error?.("Couldn't open navigation. Please open Maps manually.");
-        });
-      });
-  } else {
-    // Android — try the Google Maps turn-by-turn intent, fall back to web
-    // if Google Maps isn't installed (rare but possible on some devices).
-    const androidNavUrl = `google.navigation:q=${destination}&mode=d`;
-
-    Linking.canOpenURL(androidNavUrl)
-      .then((supported) => {
-        if (supported) {
-          return Linking.openURL(androidNavUrl);
-        }
-        return Linking.openURL(webFallbackUrl);
-      })
-      .catch(() => {
-        Linking.openURL(webFallbackUrl).catch(() => {
-          toast?.error?.("Couldn't open navigation. Please open Maps manually.");
-        });
-      });
-  }
-};
+    }
+  };
 
   const minimizeCard = () => {
     Animated.parallel([

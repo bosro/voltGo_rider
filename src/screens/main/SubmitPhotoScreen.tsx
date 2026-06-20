@@ -9,24 +9,22 @@
  *  - Deduped (was defined twice in the codebase — only one copy needed).
  */
 
-import React from "react";
+import { useToast } from "@/components/common/Toast";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  Image,
-  Dimensions,
   ActivityIndicator,
-  Alert,
+  Dimensions,
+  Image,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors, Typography, Radius, Shadow } from "../../theme";
-import { MainStackParamList } from "../../navigation/types";
 import { useMarkDelivered } from "../../hooks/rider/useOrders";
-import { useToast } from "@/components/common/toast";
+import { MainStackParamList } from "../../navigation/types";
+import { Colors, Radius, Shadow, Typography } from "../../theme";
 
 const { width, height } = Dimensions.get("window");
 type SubmitParams = RouteProp<MainStackParamList, "SubmitPhoto">;

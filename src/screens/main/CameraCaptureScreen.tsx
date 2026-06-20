@@ -10,28 +10,27 @@
  *    never loses context.
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
+  Platform,
   SafeAreaView,
   StatusBar,
-  Platform,
-  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
-import { Colors, Typography, Radius } from "../../theme";
 import { MainStackParamList } from "../../navigation/types";
+import { Colors, Radius, Typography } from "../../theme";
 
-import FlashIcon from "../../../assets/icons/camera-flash.svg";
 import ChevronUpIcon from "../../../assets/icons/camera-chevron-up.svg";
+import FlashIcon from "../../../assets/icons/camera-flash.svg";
 import NoMicIcon from "../../../assets/icons/camera-no-mic.svg";
 
+import { useToast } from "@/components/common/Toast";
 import * as ImageManipulator from "expo-image-manipulator";
-import { useToast } from "@/components/common/toast";
 
 type CameraParams = RouteProp<MainStackParamList, "CameraCapture">;
 

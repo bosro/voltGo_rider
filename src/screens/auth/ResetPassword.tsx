@@ -1,24 +1,24 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useToast } from "@/components/common/Toast";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  ScrollView,
   Animated,
   Image,
   Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { NavyButton, GhostButton } from "../../components/common";
-import { Colors, Typography, Radius } from "../../theme";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useResetPassword, useForgotPassword } from "../../hooks/auth/useAuth";
-import { RootStackParamList } from "../../navigation/types";
+import { GhostButton, NavyButton } from "../../components/common";
 import ConfirmModal from "../../components/common/ConfirmModal"; // ← adjust path
-import { useToast } from "@/components/common/toast";
+import { useForgotPassword, useResetPassword } from "../../hooks/auth/useAuth";
+import { RootStackParamList } from "../../navigation/types";
+import { Colors, Radius, Typography } from "../../theme";
 
 type ResetPasswordRouteProp = RouteProp<RootStackParamList, "ResetPassword">;
 

@@ -1,24 +1,24 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useToast } from "@/components/common/Toast";
+import { useAuthStore } from "@/store/authStore";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
   Animated,
   Dimensions,
   Image,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NavyButton } from "../../components/common";
-import { Colors, Typography, Radius } from "../../theme";
-import { RootStackParamList } from "../../navigation/types";
-import { useSendOtp, useVerifyOtp } from "../../hooks/auth/useAuth";
-import { useAuthStore } from "@/store/authStore";
 import ConfirmModal from "../../components/common/ConfirmModal"; // ← adjust path
-import { useToast } from "@/components/common/toast";
+import { useSendOtp, useVerifyOtp } from "../../hooks/auth/useAuth";
+import { RootStackParamList } from "../../navigation/types";
+import { Colors, Radius, Typography } from "../../theme";
 
 const { height } = Dimensions.get("window");
 const OTP_LENGTH = 5;
@@ -52,8 +52,17 @@ export default function OTPScreen() {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 380, useNativeDriver: true }),
-      Animated.spring(slideUp, { toValue: 0, tension: 58, friction: 10, useNativeDriver: true }),
+      Animated.timing(fadeIn, {
+        toValue: 1,
+        duration: 380,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideUp, {
+        toValue: 0,
+        tension: 58,
+        friction: 10,
+        useNativeDriver: true,
+      }),
     ]).start();
 
     const interval = setInterval(() => {
@@ -92,7 +101,8 @@ export default function OTPScreen() {
       console.log("🔑 verify-phone payload:", JSON.stringify(payload, null, 2));
 
       const accessToken = payload?.access_token ?? payload?.token;
-      const refreshToken = payload?.refresh_token ?? payload?.refreshToken ?? "";
+      const refreshToken =
+        payload?.refresh_token ?? payload?.refreshToken ?? "";
 
       if (accessToken) {
         await login(
@@ -195,7 +205,9 @@ export default function OTPScreen() {
           {Array.from({ length: OTP_LENGTH }).map((_, i) => (
             <TextInput
               key={i}
-              ref={(ref) => { inputRefs.current[i] = ref; }}
+              ref={(ref) => {
+                inputRefs.current[i] = ref;
+              }}
               style={[styles.otpBox, otp[i] ? styles.otpBoxFilled : null]}
               value={otp[i]}
               onChangeText={(text) => handleChange(text, i)}
@@ -209,8 +221,16 @@ export default function OTPScreen() {
           ))}
         </View>
 
-        <TouchableOpacity onPress={handleResend} disabled={!canResend || isSending}>
-          <Text style={[styles.resend, canResend && !isSending && styles.resendActive]}>
+        <TouchableOpacity
+          onPress={handleResend}
+          disabled={!canResend || isSending}
+        >
+          <Text
+            style={[
+              styles.resend,
+              canResend && !isSending && styles.resendActive,
+            ]}
+          >
             {isSending
               ? "Sending..."
               : canResend

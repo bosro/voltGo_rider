@@ -3,23 +3,22 @@
  * Biometric toggle is now REAL — reads/writes @voltgo_biometric_enabled
  * and navigates to BiometricSetupScreen when enabling.
  */
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  Switch,
-  Alert,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { SvgXml } from "react-native-svg";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Colors, Typography } from "../../../theme";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useToast } from "@/components/common/toast";
 import ConfirmModal from "@/components/common/ConfirmModal";
+import { useToast } from "@/components/common/Toast";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
+import { useEffect, useState } from "react";
+import {
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { SvgXml } from "react-native-svg";
+import { Colors, Typography } from "../../../theme";
 
 export const BIOMETRIC_KEY = "@voltgo_biometric_enabled";
 

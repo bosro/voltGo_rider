@@ -1,16 +1,16 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
 import { NavigationContainer } from "@react-navigation/native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import NetInfo from "@react-native-community/netinfo";
+import { useCallback, useEffect, useState } from "react";
+import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import RootNavigator from "./src/navigation/RootNavigator";
 import NoInternetScreen from "@/screens/main/onboarding/NoInternetScreen";
-import { ToastProvider } from "./src/components/common/toast";
+import { ToastProvider } from "./src/components/common/Toast";
+import RootNavigator from "./src/navigation/RootNavigator";
 
 SplashScreen.preventAutoHideAsync();
 

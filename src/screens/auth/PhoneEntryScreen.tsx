@@ -1,30 +1,30 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useNavigation } from "@react-navigation/native";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  ScrollView,
   Animated,
   Image,
   Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import { NavyButton } from "../../components/common";
-import { Colors, Typography, Radius } from "../../theme";
+import { Colors, Radius, Typography } from "../../theme";
 
-import GhanaFlag from "../../../assets/icons/flag-ghana.svg";
-import ChevronDown from "../../../assets/icons/chevron-down-sm.svg";
-import GoogleIcon from "../../../assets/icons/google.svg";
+import { useToast } from "@/components/common/Toast";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ChevronDown from "../../../assets/icons/chevron-down-sm.svg";
+import GhanaFlag from "../../../assets/icons/flag-ghana.svg";
+import GoogleIcon from "../../../assets/icons/google.svg";
 import {
-  useSendOtp,
-  useRegisterRider,
   useLoginRider,
+  useRegisterRider,
+  useSendOtp,
 } from "../../hooks/auth/useAuth";
-import { useToast } from "@/components/common/toast";
 
 export default function PhoneEntryScreen() {
   const navigation = useNavigation<any>();
@@ -91,13 +91,18 @@ export default function PhoneEntryScreen() {
       }
 
       try {
-        await register({ fullName: fullName.trim(), phone: fullPhone, password });
+        await register({
+          fullName: fullName.trim(),
+          phone: fullPhone,
+          password,
+        });
         await sendOtp(fullPhone);
         navigation.navigate("OTP", { phone: fullPhone, isNewRider: true });
       } catch (err: any) {
         // Network / server error — toast keeps the user in context to retry
         const message =
-          err?.response?.data?.message ?? "Something went wrong. Please try again.";
+          err?.response?.data?.message ??
+          "Something went wrong. Please try again.";
         toast.error(message);
       }
     } else {
@@ -156,7 +161,10 @@ export default function PhoneEntryScreen() {
               onPress={() => handleTabSwitch(false)}
             >
               <Text
-                style={[styles.toggleText, !isNewRider && styles.toggleTextActive]}
+                style={[
+                  styles.toggleText,
+                  !isNewRider && styles.toggleTextActive,
+                ]}
               >
                 Sign In
               </Text>
@@ -166,7 +174,10 @@ export default function PhoneEntryScreen() {
               onPress={() => handleTabSwitch(true)}
             >
               <Text
-                style={[styles.toggleText, isNewRider && styles.toggleTextActive]}
+                style={[
+                  styles.toggleText,
+                  isNewRider && styles.toggleTextActive,
+                ]}
               >
                 Register
               </Text>
@@ -240,13 +251,19 @@ export default function PhoneEntryScreen() {
 
           {isNewRider && password.length > 0 && (
             <View style={{ marginTop: -8, marginBottom: 10 }}>
-              <Text style={[styles.hint, password.length >= 8 && styles.hintOk]}>
+              <Text
+                style={[styles.hint, password.length >= 8 && styles.hintOk]}
+              >
                 {password.length >= 8 ? "✓" : "✗"} At least 8 characters
               </Text>
-              <Text style={[styles.hint, /[A-Z]/.test(password) && styles.hintOk]}>
+              <Text
+                style={[styles.hint, /[A-Z]/.test(password) && styles.hintOk]}
+              >
                 {/[A-Z]/.test(password) ? "✓" : "✗"} One uppercase letter
               </Text>
-              <Text style={[styles.hint, /[0-9]/.test(password) && styles.hintOk]}>
+              <Text
+                style={[styles.hint, /[0-9]/.test(password) && styles.hintOk]}
+              >
                 {/[0-9]/.test(password) ? "✓" : "✗"} One number
               </Text>
             </View>
@@ -284,7 +301,11 @@ export default function PhoneEntryScreen() {
               onPress={item.onPress}
               activeOpacity={0.8}
             >
-              <item.Icon width={item.w} height={item.h} style={{ marginRight: 12 }} />
+              <item.Icon
+                width={item.w}
+                height={item.h}
+                style={{ marginRight: 12 }}
+              />
               <Text style={styles.socialLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
