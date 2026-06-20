@@ -28,7 +28,12 @@
         "NSLocationWhenInUseUsageDescription": "VoltGo needs your location to show your position on the map.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "VoltGo needs your location while delivering to track your route.",
         "NSFaceIDUsageDescription": "VoltGo uses Face ID to sign you in quickly.",
-        "NSMicrophoneUsageDescription": "VoltGo may need microphone access during camera use."
+        "NSMicrophoneUsageDescription": "VoltGo may need microphone access during camera use.",
+        "LSApplicationQueriesSchemes": [
+          "maps",
+          "comgooglemaps",
+          "google.navigation"
+        ]
       },
       "config": {
         "googleMapsApiKey": "AIzaSyDex_IKWvqGX2MQOXi7jUqy264s4z2E8xo"
