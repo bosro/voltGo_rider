@@ -1,19 +1,6 @@
 /**
  * Toast.tsx — RIDER APP
- * ─────────────────────────────────────────────────────────────────
- * Lightweight toast notifications. Matches the customer app's
- * useToast() pattern: wrap the app root in <ToastProvider>, then call
- * toast.success(msg) / toast.error(msg) / toast.info(msg) from any
- * screen.
- *
- * Usage:
- *   // App.tsx
- *   <ToastProvider><RootNavigator /></ToastProvider>
- *
- *   // any screen
- *   const toast = useToast();
- *   toast.error("Failed to submit delivery. Please retry.");
- *   toast.success("Order cancelled");
+ * WhatsApp-style minimal pill toast.
  */
 
 import React, {
@@ -28,11 +15,10 @@ import {
   Platform,
   StyleSheet,
   Text,
-  View,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors, Radius, Shadow, Typography } from "../../theme";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type ToastVariant = "success" | "error" | "info";
@@ -51,26 +37,15 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const DURATION_MS = 3200;
-const ANIM_MS = 240;
+const DURATION_MS = 3000;
+const ANIM_MS = 200;
 
-const VARIANT_STYLES: Record<
-  ToastVariant,
-  { bg: string; border: string; iconBg: string; text: string }
-> = {
-  success: { bg: "#0B1F3A", border: "#1A8A3C", iconBg: "#1A8A3C", text: Colors.white },
-  error: { bg: "#0B1F3A", border: "#EF4444", iconBg: "#EF4444", text: Colors.white },
-  info: { bg: "#0B1F3A", border: "#3B82F6", iconBg: "#3B82F6", text: Colors.white },
+// Accent dot color per variant — subtle, not loud
+const ACCENT: Record<ToastVariant, string> = {
+  success: "#22C55E",
+  error: "#EF4444",
+  info: "#3B82F6",
 };
-
-function ToastIcon({ variant }: { variant: ToastVariant }) {
-  const symbol = variant === "success" ? "✓" : variant === "error" ? "!" : "i";
-  return (
-    <View style={[styles.iconCircle, { backgroundColor: VARIANT_STYLES[variant].iconBg }]}>
-      <Text style={styles.iconText}>{symbol}</Text>
-    </View>
-  );
-}
 
 function ToastBanner({
   item,
@@ -80,47 +55,65 @@ function ToastBanner({
   onDismiss: (id: string) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(-60)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const variantStyle = VARIANT_STYLES[item.variant];
+  const scale = useRef(new Animated.Value(0.92)).current;
 
   React.useEffect(() => {
+    // Fade + subtle scale in
     Animated.parallel([
-      Animated.spring(translateY, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: ANIM_MS, useNativeDriver: true }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: ANIM_MS,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        tension: 120,
+        friction: 10,
+        useNativeDriver: true,
+      }),
     ]).start();
 
-    const timer = setTimeout(() => handleDismiss(), DURATION_MS);
+    const timer = setTimeout(handleDismiss, DURATION_MS);
     return () => clearTimeout(timer);
   }, []);
 
   const handleDismiss = () => {
     Animated.parallel([
-      Animated.timing(translateY, { toValue: -60, duration: ANIM_MS, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: ANIM_MS, useNativeDriver: true }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: ANIM_MS,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 0.92,
+        duration: ANIM_MS,
+        useNativeDriver: true,
+      }),
     ]).start(() => onDismiss(item.id));
   };
+
+  const topOffset = (Platform.OS === "ios" ? insets.top : insets.top + 8) + 12;
 
   return (
     <Animated.View
       style={[
-        styles.banner,
+        styles.pill,
         {
-          top: (Platform.OS === "ios" ? insets.top : insets.top + 8) + 8,
-          backgroundColor: variantStyle.bg,
-          borderLeftColor: variantStyle.border,
+          top: topOffset,
           opacity,
-          transform: [{ translateY }],
+          transform: [{ scale }],
         },
       ]}
     >
       <TouchableOpacity
-        style={styles.bannerContent}
-        activeOpacity={0.9}
+        activeOpacity={0.85}
         onPress={handleDismiss}
+        style={styles.pillInner}
       >
-        <ToastIcon variant={item.variant} />
-        <Text style={[styles.message, { color: variantStyle.text }]} numberOfLines={3}>
+        {/* Accent dot */}
+        <View style={[styles.dot, { backgroundColor: ACCENT[item.variant] }]} />
+        <Text style={styles.message} numberOfLines={2}>
           {item.message}
         </Text>
       </TouchableOpacity>
@@ -134,8 +127,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const push = useCallback((message: string, variant: ToastVariant) => {
     const id = String(idRef.current++);
-    // Only one toast visible at a time — replace rather than stack,
-    // matching mobile-toast convention and avoiding layout jumps.
     setToasts([{ id, message, variant }]);
   }, []);
 
@@ -163,9 +154,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
-  if (!ctx) {
-    throw new Error("useToast must be used within a ToastProvider");
-  }
+  if (!ctx) throw new Error("useToast must be used within a ToastProvider");
   return ctx;
 }
 
@@ -177,43 +166,40 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 9999,
     elevation: 9999,
+    alignItems: "center", // centers pill horizontally
   },
-  banner: {
+  pill: {
     position: "absolute",
-    left: 14,
-    right: 14,
-    borderRadius: Radius.lg,
-    borderLeftWidth: 4,
-    ...Shadow.modal,
+    // Auto width — shrinks to content, max prevents overflow
+    maxWidth: "80%",
+    minWidth: 120,
+    backgroundColor: "#1E2530", // dark navy-charcoal, matches your app palette
+    borderRadius: 20,
+    // Subtle shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  bannerContent: {
+  pillInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 14,
+    paddingVertical: 9,
     paddingHorizontal: 14,
+    gap: 8,
   },
-  iconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
     flexShrink: 0,
   },
-  iconText: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 13,
-    color: Colors.white,
-  },
   message: {
-    flex: 1,
-    fontFamily: "Poppins-SemiBold",
-    fontSize: Typography.sm,
+    fontFamily: "Poppins-Regular",
+    fontSize: 13,
+    color: "#F1F1F1",
+    flexShrink: 1, // wraps before overflowing
     lineHeight: 18,
   },
 });
-
-
-
-

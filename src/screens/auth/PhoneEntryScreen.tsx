@@ -72,13 +72,15 @@ export default function PhoneEntryScreen() {
   const handleContinue = async () => {
     const trimmed = phone.trim();
 
-    // ── Validation — toast is ideal here: fast, non-blocking ──────────
-    if (trimmed.length !== 9) {
+    // Normalize: strip leading 0 if user typed the full number
+    const digits = trimmed.startsWith("0") ? trimmed.slice(1) : trimmed;
+
+    if (digits.length !== 9) {
       toast.error("Please enter a valid 9-digit phone number.");
       return;
     }
 
-    const fullPhone = `0${trimmed}`;
+    const fullPhone = `0${digits}`;
 
     if (isNewRider) {
       if (!fullName.trim()) {
@@ -113,7 +115,6 @@ export default function PhoneEntryScreen() {
 
       try {
         await loginRider({ phone: fullPhone, password });
-        navigation.reset({ index: 0, routes: [{ name: "MainApp" }] });
       } catch (err: any) {
         const message =
           err?.response?.data?.message ??
@@ -132,6 +133,11 @@ export default function PhoneEntryScreen() {
       onPress: () => {},
     },
   ];
+
+  // Add this just before the return statement:
+  const digits = phone.trim().startsWith("0")
+    ? phone.trim().slice(1)
+    : phone.trim();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -284,7 +290,7 @@ export default function PhoneEntryScreen() {
               isPending ? "Please wait..." : isNewRider ? "Register" : "Sign In"
             }
             onPress={handleContinue}
-            disabled={isPending || phone.trim().length !== 9 || !password}
+            disabled={isPending || digits.length !== 9 || !password}
           />
           <View style={{ height: 20 }} />
 

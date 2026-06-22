@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./types";
 
@@ -19,12 +19,13 @@ import { useAuthStore } from "../store/authStore";
 import ResetPasswordScreen from "@/screens/auth/ResetPassword";
 import ForgotPasswordScreen from "@/screens/auth/ForgotPasswordScreen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { STORAGE_KEYS } from "@/lib/api";
+import { registerSessionExpiredHandler, STORAGE_KEYS } from "@/lib/api";
+import { navigationRef } from "./navigationRef";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { isAuthenticated, isHydrating, hydrate } = useAuthStore();
+  const { isAuthenticated, isHydrating, hydrate, logout } = useAuthStore();
   const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -32,78 +33,100 @@ export default function RootNavigator() {
     AsyncStorage.getItem(STORAGE_KEYS.HAS_ONBOARDED).then((val) => {
       setHasOnboarded(val === "true");
     });
+
+    registerSessionExpiredHandler(async () => {
+      const { isAuthenticated, logout } = useAuthStore.getState();
+
+      // Don't trigger session expiry during a fresh login attempt
+      if (!isAuthenticated) return;
+
+      await logout();
+      navigationRef.current?.reset({
+        index: 0,
+        routes: [{ name: "PhoneEntry" }],
+      });
+    });
   }, []);
 
   if (isHydrating || hasOnboarded === null) return null;
 
+  // ← Derive the initial route
+  const initialRoute = isAuthenticated
+    ? "MainApp"
+    : hasOnboarded
+      ? "PhoneEntry"
+      : "Splash";
+
   return (
     <Stack.Navigator
-      initialRouteName={
-        isAuthenticated
-          ? "MainApp"
-          : hasOnboarded
-            ? "PhoneEntry" // ← returning user goes straight to login
-            : "Splash" // ← first ever open sees Splash → Welcome → PhoneEntry
-      }
+      initialRouteName={initialRoute}
       screenOptions={{ headerShown: false, gestureEnabled: false }}
     >
-      <Stack.Screen name="Splash" component={SplashScreen} />
-      <Stack.Screen
-        name="Welcome"
-        component={WelcomeScreen}
-        options={{ animation: "fade" }}
-      />
-      <Stack.Screen
-        name="PhoneEntry"
-        component={PhoneEntryScreen}
-        options={{ animation: "slide_from_right", gestureEnabled: true }}
-      />
-      <Stack.Screen
-        name="ResetPassword"
-        component={ResetPasswordScreen}
-        options={{ animation: "slide_from_right", gestureEnabled: true }}
-      />
-      <Stack.Screen
-        name="ForgotPassword"
-        component={ForgotPasswordScreen}
-        options={{ animation: "slide_from_right", gestureEnabled: true }}
-      />
-      <Stack.Screen
-        name="OTP"
-        component={OTPScreen}
-        options={{ animation: "slide_from_right", gestureEnabled: true }}
-      />
+      {/* Auth screens — only rendered when NOT authenticated */}
+      {!isAuthenticated && (
+        <>
+          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen
+            name="Welcome"
+            component={WelcomeScreen}
+            options={{ animation: "fade" }}
+          />
+          <Stack.Screen
+            name="PhoneEntry"
+            component={PhoneEntryScreen}
+            options={{ animation: "slide_from_right", gestureEnabled: true }}
+          />
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{ animation: "slide_from_right", gestureEnabled: true }}
+          />
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            options={{ animation: "slide_from_right", gestureEnabled: true }}
+          />
+          <Stack.Screen
+            name="OTP"
+            component={OTPScreen}
+            options={{ animation: "slide_from_right", gestureEnabled: true }}
+          />
+          <Stack.Screen
+            name="CreateProfileStep2"
+            component={CreateProfileStep2Screen}
+            options={{ animation: "slide_from_right" }}
+          />
+          <Stack.Screen
+            name="CreateProfileStep3"
+            component={CreateProfileStep3Screen}
+            options={{ animation: "slide_from_right" }}
+          />
+          <Stack.Screen
+            name="CreateProfileStep4"
+            component={CreateProfileStep4Screen}
+            options={{ animation: "slide_from_right" }}
+          />
+          <Stack.Screen
+            name="BiometricSetup"
+            component={BiometricSetupScreen}
+            options={{ animation: "fade" }}
+          />
+          <Stack.Screen
+            name="NotificationPermission"
+            component={NotificationPermissionScreen}
+            options={{ animation: "fade", gestureEnabled: false }}
+          />
+        </>
+      )}
 
-      <Stack.Screen
-        name="CreateProfileStep2"
-        component={CreateProfileStep2Screen}
-        options={{ animation: "slide_from_right" }}
-      />
-      <Stack.Screen
-        name="CreateProfileStep3"
-        component={CreateProfileStep3Screen}
-        options={{ animation: "slide_from_right" }}
-      />
-      <Stack.Screen
-        name="CreateProfileStep4"
-        component={CreateProfileStep4Screen}
-        options={{ animation: "slide_from_right" }}
-      />
-      <Stack.Screen
-        name="BiometricSetup"
-        component={BiometricSetupScreen}
-        options={{ animation: "fade" }}
-      />
-      <Stack.Screen
-        name="MainApp"
-        component={MainNavigator}
-        options={{ animation: "fade" }}
-      />
-      <Stack.Screen
-        name="NotificationPermission"
-        component={NotificationPermissionScreen}
-        options={{ animation: "fade", gestureEnabled: false }}
-      />
+      {/* Main app — only rendered when authenticated */}
+      {isAuthenticated && (
+        <Stack.Screen
+          name="MainApp"
+          component={MainNavigator}
+          options={{ animation: "fade" }}
+        />
+      )}
     </Stack.Navigator>
   );
 }

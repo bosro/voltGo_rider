@@ -11,6 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import NoInternetScreen from "@/screens/main/onboarding/NoInternetScreen";
 import { ToastProvider } from "./src/components/common/Toast";
 import RootNavigator from "./src/navigation/RootNavigator";
+import { navigationRef } from "./src/navigation/navigationRef"; 
 
 SplashScreen.preventAutoHideAsync();
 
@@ -72,7 +73,7 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <ToastProvider>
-            <NavigationContainer>
+            <NavigationContainer ref={navigationRef}>
               <View style={{ flex: 1 }} onLayout={onLayout}>
                 <RootNavigator />
               </View>

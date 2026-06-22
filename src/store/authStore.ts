@@ -15,6 +15,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import {
+  BASE_URL,
   RiderProfile,
   STORAGE_KEYS,
   clearTokens,
@@ -22,6 +23,7 @@ import {
   setTokens,
 } from "../lib/api";
 import { socketService } from "../lib/socket";
+import axios from "axios";
 
 // ── Store shape ───────────────────────────────────────────────────────────────
 interface AuthState {
@@ -42,9 +44,6 @@ interface AuthState {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 export const useAuthStore = create<AuthState>((set, get) => ({
-
-
-
   isAuthenticated: false,
   isHydrating: true,
   rider: null,
@@ -55,26 +54,44 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * Called once in RootNavigator.
    */
   hydrate: async () => {
+    set({ isHydrating: true });
     try {
-      const [accessEntry, profileEntry] = await AsyncStorage.multiGet([
-        STORAGE_KEYS.ACCESS_TOKEN,
-        STORAGE_KEYS.RIDER_PROFILE,
-      ]);
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      const refreshToken = await AsyncStorage.getItem(
+        STORAGE_KEYS.REFRESH_TOKEN,
+      );
+      const profileRaw = await AsyncStorage.getItem(STORAGE_KEYS.RIDER_PROFILE);
 
-      const token = accessEntry[1];
-      const profile = profileEntry[1]
-        ? (JSON.parse(profileEntry[1]) as RiderProfile)
-        : null;
-
-      if (token && profile) {
-        set({ isAuthenticated: true, accessToken: token, rider: profile });
-        // Re-connect socket for persisted sessions
-        socketService.connect(profile.id);
-      } else {
-        set({ isAuthenticated: false, accessToken: null, rider: null });
+      if (!token) {
+        set({ isAuthenticated: false, isHydrating: false });
+        return;
       }
-    } catch {
-      set({ isAuthenticated: false, accessToken: null, rider: null });
+
+      // Try to refresh the token on startup to verify it's still valid
+      if (refreshToken) {
+        try {
+          const { data } = await axios.post(`${BASE_URL}/token/refresh`, {
+            refresh_token: refreshToken,
+          });
+          const newAccess = data?.data?.access_token ?? data?.access_token;
+          const newRefresh =
+            data?.data?.refresh_token ?? data?.refresh_token ?? refreshToken;
+          await setTokens(newAccess, newRefresh);
+          const profile = profileRaw ? JSON.parse(profileRaw) : null;
+          set({
+            isAuthenticated: true,
+            accessToken: newAccess,
+            rider: profile,
+          });
+        } catch {
+          // Refresh failed — token is truly expired
+          await clearTokens();
+          set({ isAuthenticated: false });
+        }
+      } else {
+        await clearTokens();
+        set({ isAuthenticated: false });
+      }
     } finally {
       set({ isHydrating: false });
     }
@@ -117,19 +134,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isAuthenticated: false, accessToken: null, rider: null });
   },
 }));
-
-// Register the Axios interceptor callback
-registerSessionExpiredHandler(() => {
-  useAuthStore.getState().logout();
-});
-
-
-
-
-
-
-
-
-
 
 
