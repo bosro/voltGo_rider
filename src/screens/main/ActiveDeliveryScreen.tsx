@@ -33,13 +33,7 @@
  */
 
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -50,7 +44,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import {
@@ -58,7 +52,7 @@ import {
   useMarkCollected,
   useMarkInTransit,
 } from "../../hooks/rider/useOrders";
-import { Coordinates } from "../../lib/api";
+import { Coordinates, ordersApi } from "../../lib/api";
 import { MainStackParamList } from "../../navigation/types";
 import { useRiderStore } from "../../store/riderStore";
 import { Colors, Radius, Shadow, Typography } from "../../theme";
@@ -107,6 +101,8 @@ export default function ActiveDeliveryScreen() {
   const route = useRoute<RouteParams>();
   const mapRef = useRef<MapView>(null);
 
+  // const orderId = (route.params as any)?.orderId;
+
   const {
     orderId,
     customerName,
@@ -131,7 +127,8 @@ export default function ActiveDeliveryScreen() {
 
   const [orderCancelledVisible, setOrderCancelledVisible] = useState(false);
 
-  const { currentCoords, activeOrder, clearDelivery } = useRiderStore();
+  const { currentCoords, activeOrder, setActiveOrder, clearDelivery } =
+    useRiderStore();
   const riderCoord = currentCoords ?? ACCRA_FALLBACK;
 
   const lastPolylineOriginRef = useRef<Coordinates>(riderCoord);
@@ -163,7 +160,26 @@ export default function ActiveDeliveryScreen() {
     mode: "TWO_WHEELER",
   });
 
+  const [userInteracting, setUserInteracting] = useState(false);
+  const recenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const toast = useToast();
+
+  useEffect(() => {
+    // If store lost the active order (e.g. app was backgrounded), re-fetch it
+    const restoreIfNeeded = async () => {
+      if (!activeOrder && orderId) {
+        try {
+          const res = await ordersApi.getActiveOrder();
+          const order = res.data?.data;
+          if (order && order.id === orderId) {
+            setActiveOrder(order);
+          }
+        } catch {}
+      }
+    };
+    restoreIfNeeded();
+  }, [orderId]);
 
   // Update polyline origin when rider moves ~100 m
   useEffect(() => {
@@ -438,14 +454,35 @@ export default function ActiveDeliveryScreen() {
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
         customMapStyle={CUSTOM_MAP_STYLE}
-        scrollEnabled={false}
-        zoomEnabled={false}
-        rotateEnabled={false}
+        scrollEnabled={true} // ← was false
+        zoomEnabled={true} // ← was false
+        rotateEnabled={true} // ← was false
         pitchEnabled={false}
         showsUserLocation={false}
         showsMyLocationButton={false}
-        showsCompass={false}
+        showsCompass={true} // ← show compass when rotated
+        showsTraffic={true} // ← show live traffic like Uber
+        showsBuildings={true} // ← 3D buildings
+        showsIndoors={false}
         toolbarEnabled={false}
+        onPanDrag={() => {
+          setUserInteracting(true);
+          if (recenterTimeoutRef.current)
+            clearTimeout(recenterTimeoutRef.current);
+          // Auto-recenter after 8 seconds of no interaction
+          recenterTimeoutRef.current = setTimeout(() => {
+            setUserInteracting(false);
+            if (mapRef.current && routeCoords.length > 0) {
+              mapRef.current.fitToCoordinates(
+                [polylineOriginCoord, polylineDest],
+                {
+                  edgePadding: { top: 80, right: 60, bottom: 360, left: 60 },
+                  animated: true,
+                },
+              );
+            }
+          }, 8000);
+        }}
       >
         {routeCoords.length > 0 && (
           <Polyline
@@ -616,6 +653,30 @@ export default function ActiveDeliveryScreen() {
           )}
         </TouchableOpacity>
       </Animated.View>
+
+      {/* Recenter button — shown when user has panned away */}
+      {userInteracting && (
+        <TouchableOpacity
+          style={styles.recenterBtn}
+          onPress={() => {
+            setUserInteracting(false);
+            if (recenterTimeoutRef.current)
+              clearTimeout(recenterTimeoutRef.current);
+            if (mapRef.current) {
+              mapRef.current.fitToCoordinates(
+                [polylineOriginCoord, polylineDest],
+                {
+                  edgePadding: { top: 80, right: 60, bottom: 360, left: 60 },
+                  animated: true,
+                },
+              );
+            }
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.recenterIcon}>⊙</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Floating action button (minimized state) */}
       <Animated.View
@@ -875,6 +936,25 @@ const styles = StyleSheet.create({
     color: Colors.white,
     marginTop: 1,
   },
+  recenterBtn: {
+    position: "absolute",
+    bottom: 200,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 15,
+  },
+  recenterIcon: {
+    fontSize: 20,
+    color: Colors.navy,
+  },
 });
-
-

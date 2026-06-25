@@ -53,12 +53,12 @@ export function useOrderOffers() {
 }
 
 // ── Order history ─────────────────────────────────────────────────────────────
-export function useMyOrders() {
+export function useMyOrders(params?: { status?: string; limit?: number }) {
   const { isAuthenticated } = useAuthStore();
   return useQuery({
-    queryKey: RIDER_QUERY_KEYS.myOrders,
+    queryKey: [...RIDER_QUERY_KEYS.myOrders, params?.status ?? "all"],
     queryFn: async () => {
-      const res = await ordersApi.getMyOrders();
+      const res = await ordersApi.getMyOrders(params);
       const raw = res.data?.data as any;
       if (raw && Array.isArray(raw.items)) return raw.items as Order[];
       if (Array.isArray(raw)) return raw as Order[];
@@ -216,4 +216,3 @@ export function useMarkDelivered() {
     },
   });
 }
-

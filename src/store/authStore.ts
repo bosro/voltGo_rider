@@ -62,35 +62,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       );
       const profileRaw = await AsyncStorage.getItem(STORAGE_KEYS.RIDER_PROFILE);
 
-      if (!token) {
+      if (!token || !refreshToken) {
         set({ isAuthenticated: false, isHydrating: false });
         return;
       }
 
-      // Try to refresh the token on startup to verify it's still valid
-      if (refreshToken) {
-        try {
-          const { data } = await axios.post(`${BASE_URL}/token/refresh`, {
-            refresh_token: refreshToken,
-          });
-          const newAccess = data?.data?.access_token ?? data?.access_token;
-          const newRefresh =
-            data?.data?.refresh_token ?? data?.refresh_token ?? refreshToken;
-          await setTokens(newAccess, newRefresh);
-          const profile = profileRaw ? JSON.parse(profileRaw) : null;
-          set({
-            isAuthenticated: true,
-            accessToken: newAccess,
-            rider: profile,
-          });
-        } catch {
-          // Refresh failed — token is truly expired
+      // Restore from cache immediately — don't wait for network
+      const profile = profileRaw ? JSON.parse(profileRaw) : null;
+      set({ isAuthenticated: true, accessToken: token, rider: profile });
+
+      // Then silently try to refresh in the background
+      try {
+        const { data } = await axios.post(`${BASE_URL}/token/refresh`, {
+          refresh_token: refreshToken,
+        });
+        const newAccess = data?.data?.access_token ?? data?.access_token;
+        const newRefresh =
+          data?.data?.refresh_token ?? data?.refresh_token ?? refreshToken;
+        await setTokens(newAccess, newRefresh);
+        set({ accessToken: newAccess });
+      } catch (err: any) {
+        // ✅ Only clear session on a definitive 401 from the server
+        // Network errors, timeouts, etc. should NOT log the user out
+        const status = err?.response?.status;
+        if (status === 401) {
           await clearTokens();
-          set({ isAuthenticated: false });
+          set({ isAuthenticated: false, accessToken: null, rider: null });
         }
-      } else {
-        await clearTokens();
-        set({ isAuthenticated: false });
+        // else: keep the user logged in — Axios interceptor will handle
+        // token refresh on the next real API call
       }
     } finally {
       set({ isHydrating: false });
@@ -134,5 +134,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isAuthenticated: false, accessToken: null, rider: null });
   },
 }));
-
-

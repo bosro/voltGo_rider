@@ -19,16 +19,128 @@ import { useAuthStore } from "../store/authStore";
 import ResetPasswordScreen from "@/screens/auth/ResetPassword";
 import ForgotPasswordScreen from "@/screens/auth/ForgotPasswordScreen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { registerSessionExpiredHandler, STORAGE_KEYS } from "@/lib/api";
+import {
+  BASE_URL,
+  ordersApi,
+  registerSessionExpiredHandler,
+  setTokens,
+  STORAGE_KEYS,
+} from "@/lib/api";
 import { navigationRef } from "./navigationRef";
+import axios from "axios";
+import { AppState, AppStateStatus } from "react-native";
+import { useRiderStore } from "@/store/riderStore";
+import { CommonActions } from "@react-navigation/native";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { isAuthenticated, isHydrating, hydrate, logout } = useAuthStore();
   const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
+  const hasHydrated = useRef(false); // ← ADD THIS
 
   useEffect(() => {
+    const resumeActiveDelivery = async () => {
+      const { isAuthenticated } = useAuthStore.getState();
+      if (!isAuthenticated) return;
+
+      try {
+        const res = await ordersApi.getActiveOrder();
+        const order = res.data?.data;
+        if (!order) return;
+
+        useRiderStore.getState().setActiveOrder(order);
+
+        const currentRoute = navigationRef.current?.getCurrentRoute()?.name as
+          | string
+          | undefined;
+        const safeToNavigate =
+          !currentRoute ||
+          [
+            "HomeMap",
+            "MainTabs",
+            "Activities",
+            "Wallet",
+            "Account",
+            "HomeMap",
+          ].includes(currentRoute);
+        if (!safeToNavigate) return;
+
+        const pickupCoords = {
+          latitude: parseFloat(order.pickup_lat),
+          longitude: parseFloat(order.pickup_lng),
+        };
+        const dropoffCoords = {
+          latitude: parseFloat(order.dropoff_lat),
+          longitude: parseFloat(order.dropoff_lng),
+        };
+
+        const sharedParams = {
+          orderId: order.id,
+          customerName: order.customer?.full_name ?? "",
+          customerPhone: order.customer?.phone ?? "",
+          pickupAddress: order.pickup_address,
+          dropoffAddress: order.dropoff_address,
+          itemType: order.item_description ?? "Parcel",
+          price: parseFloat(order.price_ghs ?? "0"),
+          pickupCoords,
+          dropoffCoords,
+        };
+
+        if (
+          [
+            "accepted",
+            "assigned",
+            "arrived",
+            "rider_arriving",
+            "collected",
+            "in_transit",
+          ].includes(order.status)
+        ) {
+          navigationRef.current?.dispatch(
+            CommonActions.navigate({
+              name: "ActiveDelivery",
+              params: sharedParams,
+            }),
+          );
+        }
+      } catch {}
+    };
+
+    const handleAppStateChange = async (nextState: AppStateStatus) => {
+      if (nextState !== "active") return;
+      const { isAuthenticated } = useAuthStore.getState();
+      if (!isAuthenticated) return;
+
+      // Silent token refresh
+      try {
+        const refreshToken = await AsyncStorage.getItem(
+          STORAGE_KEYS.REFRESH_TOKEN,
+        );
+        if (!refreshToken) return;
+        const { data } = await axios.post(`${BASE_URL}/token/refresh`, {
+          refresh_token: refreshToken,
+        });
+        const newAccess = data?.data?.access_token ?? data?.access_token;
+        const newRefresh =
+          data?.data?.refresh_token ?? data?.refresh_token ?? refreshToken;
+        await setTokens(newAccess, newRefresh);
+        useAuthStore.setState({ accessToken: newAccess });
+      } catch {}
+
+      // Resume delivery
+      resumeActiveDelivery();
+    };
+
+    resumeActiveDelivery(); // cold start
+    const sub = AppState.addEventListener("change", handleAppStateChange);
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    if (hasHydrated.current) return; // ← prevent re-runs on re-mount
+    hasHydrated.current = true;
+
     hydrate();
     AsyncStorage.getItem(STORAGE_KEYS.HAS_ONBOARDED).then((val) => {
       setHasOnboarded(val === "true");
@@ -36,10 +148,7 @@ export default function RootNavigator() {
 
     registerSessionExpiredHandler(async () => {
       const { isAuthenticated, logout } = useAuthStore.getState();
-
-      // Don't trigger session expiry during a fresh login attempt
       if (!isAuthenticated) return;
-
       await logout();
       navigationRef.current?.reset({
         index: 0,
@@ -130,5 +239,3 @@ export default function RootNavigator() {
     </Stack.Navigator>
   );
 }
-
-

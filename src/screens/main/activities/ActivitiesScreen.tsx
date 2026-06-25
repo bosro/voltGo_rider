@@ -13,7 +13,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import FilterSlidersIcon from "../../../../assets/icons/filter-sliders.svg";
 import { useMyOrders } from "../../../hooks/rider/useOrders";
-import { Order } from "../../../lib/api";
+import { Order, ordersApi } from "../../../lib/api";
+import { useRiderStore } from "@/store/riderStore";
+import FilterBottomSheet, {
+  RiderFilterState,
+} from "@/components/common/FilterBottomSheet";
+import { useQueries } from "@tanstack/react-query";
 
 function groupOrdersByMonth(
   orders: Order[],
@@ -43,16 +48,16 @@ function formatOrderDate(iso: string) {
 
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    assigned:   "Assigned",
-    accepted:   "Accepted",
-    arrived:    "Arrived",
-    collected:  "Collected",
+    assigned: "Assigned",
+    accepted: "Accepted",
+    arrived: "Arrived",
+    collected: "Collected",
     in_transit: "In Transit",
   };
   return map[status] ?? status;
 }
 
-function EmptyState({ tab }: { tab: "Past" | "Upcoming" }) {
+function EmptyState({ tab }: { tab: "Past" | "Active" }) {
   const isPast = tab === "Past";
   return (
     <View style={emptyStyles.wrap}>
@@ -60,42 +65,201 @@ function EmptyState({ tab }: { tab: "Past" | "Upcoming" }) {
         <Text style={emptyStyles.icon}>{isPast ? "🛵" : "📦"}</Text>
       </View>
       <Text style={emptyStyles.title}>
-        {isPast ? "No deliveries yet" : "Nothing scheduled"}
+        {isPast ? "No deliveries yet" : "No active orders"}
       </Text>
       <Text style={emptyStyles.subtitle}>
         {isPast
-          ? "Your completed and cancelled deliveries will appear here once you start riding."
-          : "You have no upcoming deliveries right now.\nStay online to receive new orders."}
+          ? "Your completed and cancelled deliveries will appear here."
+          : "You have no ongoing deliveries right now.\nStay online to receive new orders."}
       </Text>
     </View>
   );
 }
 
 export default function ActivitiesScreen() {
-  const [activeTab, setActiveTab] = useState<"Past" | "Upcoming">("Past");
+  const [activeTab, setActiveTab] = useState<"Past" | "Active">("Past");
   const navigation = useNavigation<any>();
-  const { data: rawOrders, isLoading, isError, refetch } = useMyOrders();
 
-  const orders = Array.isArray(rawOrders) ? rawOrders : [];
+  const [resumingOrderId, setResumingOrderId] = useState<string | null>(null);
 
-  // "Past" tab — orders that have reached a terminal state
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [filters, setFilters] = useState<RiderFilterState>({
+    months: [],
+    statuses: [],
+  });
+
+  const hasActiveFilters =
+    filters.months.length > 0 || filters.statuses.length > 0;
+
+  // ── Base query — no status filter active ──────────────────────────────────
+  const baseQuery = useMyOrders({ limit: 100 });
+
+  // ── Per-status queries — only fire when statuses are selected ─────────────
+  const statusQueries = useQueries({
+    queries: filters.statuses.map((status) => ({
+      queryKey: ["rider", "orders", "my", status],
+      queryFn: async () => {
+        const res = await ordersApi.getMyOrders({ limit: 100, status });
+        const raw = res.data?.data as any;
+        if (raw && Array.isArray(raw.items)) return raw.items as Order[];
+        if (Array.isArray(raw)) return raw as Order[];
+        return [] as Order[];
+      },
+      enabled: filters.statuses.length > 0,
+      staleTime: 2 * 60 * 1_000,
+    })),
+  });
+
+  // ── Merge results ─────────────────────────────────────────────────────────
+  const orders: Order[] =
+    filters.statuses.length > 0
+      ? statusQueries.flatMap((q) => (q.data ?? []) as Order[])
+      : (baseQuery.data ?? []);
+
+  const isLoading =
+    filters.statuses.length > 0
+      ? statusQueries.some((q) => q.isLoading)
+      : baseQuery.isLoading;
+
+  const isError =
+    filters.statuses.length > 0
+      ? statusQueries.some((q) => q.isError)
+      : baseQuery.isError;
+
+  const refetch = () => {
+    if (filters.statuses.length > 0) {
+      statusQueries.forEach((q) => q.refetch());
+    } else {
+      baseQuery.refetch();
+    }
+  };
+
+  // ── Derived lists ─────────────────────────────────────────────────────────
   const pastOrders = orders.filter(
-    (o) => o.status === "delivered" || o.status === "cancelled",
+    (o) =>
+      o.status === "delivered" ||
+      o.status === "cancelled" ||
+      o.status === "failed",
   );
 
-  // "Upcoming" tab — orders still in progress
   const activeOrders = orders.filter(
     (o) =>
-      o.status === "assigned"   ||
-      o.status === "accepted"   ||
-      o.status === "arrived"    ||
-      o.status === "collected"  ||
-      o.status === "in_transit",
+      o.status === "assigned" ||
+      o.status === "accepted" ||
+      o.status === "arrived" ||
+      o.status === "rider_arriving" ||
+      o.status === "collected" ||
+      o.status === "in_transit" ||
+      o.status === "searching" ||
+      o.status === "pending",
   );
 
+  const availableMonths = [
+    ...new Set(
+      pastOrders.map((o) => {
+        const d = new Date(o.created_at);
+        return d.toLocaleDateString("en-GB", {
+          month: "long",
+          year: "numeric",
+        });
+      }),
+    ),
+  ];
+
+  // Month filter is client-side only — status already filtered by backend
+  const filteredPastOrders = pastOrders.filter((o) => {
+    const d = new Date(o.created_at);
+    const month = d.toLocaleDateString("en-GB", {
+      month: "long",
+      year: "numeric",
+    });
+    return filters.months.length === 0 || filters.months.includes(month);
+  });
+
   const sections = groupOrdersByMonth(
-    activeTab === "Past" ? pastOrders : activeOrders,
+    activeTab === "Past" ? filteredPastOrders : activeOrders,
   );
+
+  const handleOrderPress = async (item: Order) => {
+    const isActive = !["delivered", "cancelled", "failed"].includes(
+      item.status,
+    );
+
+    if (!isActive) {
+      navigation.navigate("ActivityDetail", {
+        activityId: item.id,
+        status:
+          item.status === "delivered"
+            ? "completed"
+            : item.status === "cancelled" || item.status === "failed"
+              ? "cancelled"
+              : "active",
+        destination: item.dropoff_address,
+        pickupAddress: item.pickup_address,
+        date: formatOrderDate(item.created_at),
+        amount: parseFloat(item.price_ghs ?? "0"),
+        customerName: item.customer?.full_name ?? "Customer",
+        customerPhone: item.customer?.phone ?? "—",
+        itemDescription: item.item_description ?? "—",
+        paymentMethod: item.payment_method ?? "—",
+        vehicleType: item.vehicle_type ?? "—",
+        distanceKm: item.distance_km ?? null,
+        durationMins: item.estimated_duration_mins ?? null,
+        proofPhotoUrl: item.proof_of_delivery_url ?? null,
+      });
+      return;
+    }
+
+    // Active order — show loading, fetch fresh data, navigate to ActiveDelivery
+    setResumingOrderId(item.id);
+    try {
+      const res = await ordersApi.getActiveOrder();
+      const freshOrder = res.data?.data ?? item;
+      useRiderStore.getState().setActiveOrder(freshOrder);
+
+      const pickupCoords = {
+        latitude: parseFloat(String(freshOrder.pickup_lat)),
+        longitude: parseFloat(String(freshOrder.pickup_lng)),
+      };
+      const dropoffCoords = {
+        latitude: parseFloat(String(freshOrder.dropoff_lat)),
+        longitude: parseFloat(String(freshOrder.dropoff_lng)),
+      };
+
+      navigation.navigate("ActiveDelivery", {
+        orderId: freshOrder.id,
+        customerName: freshOrder.customer?.full_name ?? "",
+        customerPhone: freshOrder.customer?.phone ?? "",
+        pickupAddress: freshOrder.pickup_address,
+        dropoffAddress: freshOrder.dropoff_address,
+        itemType: freshOrder.item_description ?? "Parcel",
+        price: parseFloat(String(freshOrder.price_ghs ?? "0")),
+        pickupCoords,
+        dropoffCoords,
+      });
+    } catch {
+      // Fallback to list data if the fetch fails
+      navigation.navigate("ActiveDelivery", {
+        orderId: item.id,
+        customerName: item.customer?.full_name ?? "",
+        customerPhone: item.customer?.phone ?? "",
+        pickupAddress: item.pickup_address,
+        dropoffAddress: item.dropoff_address,
+        itemType: item.item_description ?? "Parcel",
+        price: parseFloat(String(item.price_ghs ?? "0")),
+        pickupCoords: {
+          latitude: parseFloat(String(item.pickup_lat)),
+          longitude: parseFloat(String(item.pickup_lng)),
+        },
+        dropoffCoords: {
+          latitude: parseFloat(String(item.dropoff_lat)),
+          longitude: parseFloat(String(item.dropoff_lng)),
+        },
+      });
+    } finally {
+      setResumingOrderId(null);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -104,7 +268,7 @@ export default function ActivitiesScreen() {
 
       <View style={styles.tabRow}>
         <View style={styles.tabsLeft}>
-          {(["Past", "Upcoming"] as const).map((tab) => (
+          {(["Past", "Active"] as const).map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -122,8 +286,29 @@ export default function ActivitiesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity activeOpacity={0.75} onPress={() => refetch()}>
-          <FilterSlidersIcon width={22} height={20} />
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={
+            activeTab === "Past"
+              ? () => setFilterVisible(true)
+              : () => refetch()
+          }
+          style={[
+            styles.filterIconBtn,
+            activeTab === "Past" &&
+              hasActiveFilters &&
+              styles.filterIconBtnActive,
+          ]}
+        >
+          <FilterSlidersIcon
+            width={22}
+            height={20}
+            color={
+              activeTab === "Past" && hasActiveFilters
+                ? Colors.white
+                : Colors.textPrimary
+            }
+          />
         </TouchableOpacity>
       </View>
 
@@ -151,39 +336,7 @@ export default function ActivitiesScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.row}
-              onPress={() =>
-                navigation.navigate("ActivityDetail", {
-                  // ─── IDs & status ───────────────────────────────
-                  activityId:      item.id,
-                  status:          item.status === "delivered"
-                                     ? "completed"
-                                     : item.status === "cancelled"
-                                     ? "cancelled"
-                                     : "active",
-
-                  // ─── Addresses ──────────────────────────────────
-                  destination:     item.dropoff_address,
-                  pickupAddress:   item.pickup_address,
-
-                  // ─── Date & amount ──────────────────────────────
-                  date:            formatOrderDate(item.created_at),
-                  amount:          parseFloat(item.price_ghs ?? "0"),  // ← was item.price (undefined)
-
-                  // ─── Customer (nested object in API response) ───
-                  customerName:    item.customer?.full_name  ?? "Customer",
-                  customerPhone:   item.customer?.phone      ?? "—",
-
-                  // ─── Order details ──────────────────────────────
-                  itemDescription: item.item_description     ?? "—",   // ← was item.item_type (undefined)
-                  paymentMethod:   item.payment_method       ?? "—",
-                  vehicleType:     item.vehicle_type         ?? "—",
-
-                  // ─── Optional — null when API hasn't set them ───
-                  distanceKm:      item.distance_km          ?? null,
-                  durationMins:    item.estimated_duration_mins ?? null,
-                  proofPhotoUrl:   item.proof_of_delivery_url  ?? null,
-                })
-              }
+              onPress={() => handleOrderPress(item)} // ← replace the existing onPress
               activeOpacity={0.75}
             >
               <Text style={styles.bicycleEmoji}>🚲</Text>
@@ -196,16 +349,26 @@ export default function ActivitiesScreen() {
               <Text
                 style={[
                   styles.amount,
-                  item.status === "cancelled" && { color: Colors.errorRed },
-                  item.status !== "delivered" &&
-                    item.status !== "cancelled" && { color: Colors.navy },
+                  (item.status === "cancelled" || item.status === "failed") && {
+                    color: Colors.errorRed,
+                  },
+                  item.status === "delivered" && { color: Colors.textGreen },
+                  !["delivered", "cancelled", "failed"].includes(
+                    item.status,
+                  ) && {
+                    color: Colors.navy,
+                  },
                 ]}
               >
-                {item.status === "cancelled"
-                  ? "Cancelled"
-                  : item.status === "delivered"
-                  ? `GHS ${parseFloat(item.price_ghs ?? "0").toFixed(2)}`
-                  : statusLabel(item.status)}
+                {resumingOrderId === item.id
+                  ? "Loading..."
+                  : item.status === "cancelled"
+                    ? "Cancelled"
+                    : item.status === "failed"
+                      ? "Failed"
+                      : item.status === "delivered"
+                        ? `GHS ${parseFloat(item.price_ghs ?? "0").toFixed(2)}`
+                        : statusLabel(item.status) + " →"}
               </Text>
             </TouchableOpacity>
           )}
@@ -221,6 +384,14 @@ export default function ActivitiesScreen() {
           ListEmptyComponent={<EmptyState tab={activeTab} />}
         />
       )}
+
+      <FilterBottomSheet
+        visible={filterVisible}
+        onClose={() => setFilterVisible(false)}
+        onApply={setFilters}
+        current={filters}
+        availableMonths={availableMonths}
+      />
     </SafeAreaView>
   );
 }
@@ -338,5 +509,12 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-SemiBold",
     fontSize: Typography.base,
     color: Colors.white,
+  },
+  filterIconBtn: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  filterIconBtnActive: {
+    backgroundColor: Colors.navy,
   },
 });

@@ -235,7 +235,12 @@ export const riderApi = {
 
 export const ordersApi = {
   getOffers: () => api.get<{ data: OrderOffer[] }>("/rider/orders/offers"),
-  getMyOrders: () => api.get<{ data: Order[] }>("/rider/orders/my"),
+  getMyOrders: (params?: { limit?: number; status?: string }) => {
+    const query = new URLSearchParams();
+    query.set("limit", String(params?.limit ?? 100));
+    if (params?.status) query.set("status", params.status);
+    return api.get<{ data: Order[] }>(`/rider/orders/my?${query.toString()}`);
+  },
   getActiveOrder: () => api.get<{ data: Order | null }>("/rider/orders/active"),
   acceptOrder: (id: string) =>
     api.post<{ data: Order }>(`/rider/orders/${id}/accept`),
@@ -343,7 +348,8 @@ export type OrderStatus =
   | "collected"
   | "in_transit"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  | "failed";
 
 export interface Order {
   id: string;
@@ -417,5 +423,3 @@ export interface AddPaymentMethodPayload {
   account_name: string;
   provider?: string;
 }
-
-
