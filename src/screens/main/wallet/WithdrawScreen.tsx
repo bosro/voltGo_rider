@@ -40,7 +40,7 @@ const ACCOUNTS = [
   { id: "1", label: "MTN MoMo · 0575****04", emoji: "🟡" },
   { id: "2", label: "Vodafone Cash · 0204****12", emoji: "🔴" },
 ];
-const AVAILABLE_BALANCE = 2553.56;
+const AVAILABLE_BALANCE = 0.00;
 
 export default function WithdrawScreen() {
   const navigation = useNavigation<any>();
