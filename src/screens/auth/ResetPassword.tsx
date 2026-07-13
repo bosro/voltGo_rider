@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Image,
+  Keyboard,
   Platform,
   ScrollView,
   StatusBar,
@@ -71,17 +72,57 @@ export default function ResetPasswordScreen() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
+  // ── OTP change handler ─────────────────────────────────────────────
+  // Handles both normal single-digit typing AND a full code being
+  // pasted/autofilled into one box (common with SMS autofill on both
+  // iOS and Android, which drops the whole code into whichever field
+  // is focused).
   const handleOtpChange = (text: string, index: number) => {
-    const digit = text.replace(/[^0-9]/g, "").slice(-1);
+    const digitsOnly = text.replace(/[^0-9]/g, "");
+
+    if (digitsOnly.length > 1) {
+      // Multi-digit input landed in one box → distribute across boxes
+      // starting at the current index.
+      const next = [...otp];
+      let cursor = index;
+      for (let i = 0; i < digitsOnly.length && cursor < OTP_LENGTH; i++) {
+        next[cursor] = digitsOnly[i];
+        cursor++;
+      }
+      setOtp(next);
+
+      const lastFilledIndex = Math.min(cursor, OTP_LENGTH - 1);
+      if (cursor >= OTP_LENGTH) {
+        Keyboard.dismiss();
+        inputRefs.current[OTP_LENGTH - 1]?.blur();
+      } else {
+        inputRefs.current[lastFilledIndex]?.focus();
+      }
+      return;
+    }
+
+    // Normal single-digit entry
+    const digit = digitsOnly.slice(-1);
     const next = [...otp];
     next[index] = digit;
     setOtp(next);
-    if (digit && index < OTP_LENGTH - 1) inputRefs.current[index + 1]?.focus();
+
+    if (digit && index < OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    } else if (digit && index === OTP_LENGTH - 1) {
+      // Last digit entered → close the keyboard, code is complete
+      Keyboard.dismiss();
+      inputRefs.current[index]?.blur();
+    }
   };
 
   const handleOtpKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === "Backspace" && !otp[index] && index > 0)
+    if (e.nativeEvent.key === "Backspace" && !otp[index] && index > 0) {
+      const next = [...otp];
+      next[index - 1] = "";
+      setOtp(next);
       inputRefs.current[index - 1]?.focus();
+    }
   };
 
   const otpValue = otp.join("");
@@ -190,9 +231,16 @@ export default function ResetPasswordScreen() {
                 value={digit}
                 onChangeText={(text) => handleOtpChange(text, i)}
                 onKeyPress={(e) => handleOtpKeyPress(e, i)}
-                keyboardType="numeric"
-                maxLength={1}
+                keyboardType="number-pad"
+                maxLength={OTP_LENGTH}
                 selectTextOnFocus
+                textContentType={
+                  Platform.OS === "ios" ? "oneTimeCode" : undefined
+                }
+                autoComplete={
+                  Platform.OS === "android" ? "sms-otp" : "one-time-code"
+                }
+                importantForAutofill="yes"
               />
             ))}
           </View>
@@ -370,6 +418,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
     textAlign: "center",
+    // Pin the writing direction to LTR. Without this, on Android devices
+    // where the system/app locale is RTL, the OS mirrors individual
+    // glyph shapes inside text inputs — which is what was causing the
+    // OTP digits to render flipped/upside-down.
+    writingDirection: "ltr",
     fontSize: 22,
     fontFamily: "Poppins-SemiBold",
     color: Colors.textPrimary,
