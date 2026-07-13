@@ -418,13 +418,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
     textAlign: "center",
-    // Pin the writing direction to LTR. Without this, on Android devices
-    // where the system/app locale is RTL, the OS mirrors individual
-    // glyph shapes inside text inputs — which is what was causing the
-    // OTP digits to render flipped/upside-down.
+    // Pin the writing direction to LTR as a safety net against RTL glyph
+    // mirroring.
     writingDirection: "ltr",
     fontSize: 22,
-    fontFamily: "Poppins-SemiBold",
+    // Custom font (Poppins-SemiBold) on Android was rendering digit
+    // glyphs mirrored/distorted — likely a broken or subsetted numeral
+    // range in the bundled font file. Numbers are the one place a
+    // branded font barely matters visually, so on Android we just fall
+    // back to the system default font for this field, which renders
+    // digits correctly. iOS keeps the branded font since it wasn't
+    // affected.
+    fontFamily: Platform.select({
+      ios: "Poppins-SemiBold",
+      android: undefined,
+    }),
+    fontWeight: Platform.OS === "android" ? "600" : undefined,
     color: Colors.textPrimary,
   },
   otpBoxFilled: { borderColor: Colors.navy, backgroundColor: Colors.white },
