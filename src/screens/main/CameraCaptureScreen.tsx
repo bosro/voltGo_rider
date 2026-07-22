@@ -15,13 +15,13 @@ import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
 import { useEffect, useRef, useState } from "react";
 import {
   Platform,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MainStackParamList } from "../../navigation/types";
 import { Colors, Radius, Typography } from "../../theme";
 

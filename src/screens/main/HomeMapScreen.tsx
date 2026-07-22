@@ -30,7 +30,7 @@
  *    set for the first time, avoiding unnecessary re-renders.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -42,7 +42,8 @@ import {
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import * as Location from "expo-location";
 
 import PowerCircleIcon from "../../../assets/icons/power-circle.svg";
 import { Colors, Radius, Typography } from "../../theme";
@@ -80,10 +81,47 @@ export default function HomeMapScreen() {
     pendingOffer,
     setPendingOffer,
     currentCoords, // written by useLocationTracking in MainNavigator
+    setCurrentCoords,
   } = useRiderStore();
 
   // Track whether we've already centred the map on the rider's first fix
   const hascentredRef = useRef(false);
+
+  // useLocationTracking (mounted in MainNavigator) only watches position
+  // while the rider is online — so a rider who is offline, or who just
+  // reopened/backgrounded the app, would otherwise be stuck showing a
+  // stale (or missing) pin until they flip online. Grabbing a fresh
+  // one-shot fix every time this screen gains focus keeps the map
+  // accurate regardless of online status, without fighting the live
+  // watch's camera behaviour (we still only auto-recentre once).
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      (async () => {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== "granted" || cancelled) return;
+
+          const current = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          if (cancelled) return;
+
+          setCurrentCoords({
+            latitude: current.coords.latitude,
+            longitude: current.coords.longitude,
+          });
+        } catch {
+          // Non-fatal — the live watch (once online) will pick this up
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [setCurrentCoords]),
+  );
 
   // Re-centre map on first GPS fix
   useEffect(() => {

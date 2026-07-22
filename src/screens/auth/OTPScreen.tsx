@@ -6,7 +6,6 @@ import {
   Animated,
   Dimensions,
   Image,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NavyButton } from "../../components/common";
 import ConfirmModal from "../../components/common/ConfirmModal"; // ← adjust path
 import { useSendOtp, useVerifyOtp } from "../../hooks/auth/useAuth";

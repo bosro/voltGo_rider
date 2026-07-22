@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -16,10 +15,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
 import { FieldLabel, InputField, NavyButton } from "../../../components/common";
 import ConfirmModal from "../../../components/common/ConfirmModal"; // ← adjust path
-import { useRiderProfile } from "../../../hooks/rider/useRider";
+import { useRiderProfile, useUpdateRiderProfile } from "../../../hooks/rider/useRider";
 import { useAuthStore } from "../../../store/authStore";
 import { Colors, Typography } from "../../../theme";
 
@@ -36,6 +36,7 @@ export default function ProfileScreen() {
   const toast = useToast();
   const { rider, updateRider } = useAuthStore();
   const { isLoading } = useRiderProfile();
+  const { mutateAsync: saveProfile, isPending: isSaving } = useUpdateRiderProfile();
 
   const [name, setName] = useState(rider?.name ?? "");
   const [email, setEmail] = useState(rider?.email ?? "");
@@ -73,9 +74,20 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSave = () => {
-    updateRider({ name, email: email || undefined });
-    setSavedModal(true);
+  const handleSave = async () => {
+    try {
+      await saveProfile({ full_name: name, email: email || undefined });
+      setSavedModal(true);
+    } catch (err: any) {
+      // Don't optimistically update local state / show a false success —
+      // that's what previously made email edits look saved and then
+      // silently disappear once the screen refetched from the server.
+      toast.error(
+        err?.response?.status === 404
+          ? "Updating your profile isn't supported by the server yet. Please contact support."
+          : (err?.response?.data?.message ?? "Couldn't save your changes. Please try again."),
+      );
+    }
   };
 
   if (isLoading && !rider) {
@@ -169,7 +181,11 @@ export default function ProfileScreen() {
         />
 
         <View style={{ height: 32 }} />
-        <NavyButton label="Save changes" onPress={handleSave} />
+        <NavyButton
+          label={isSaving ? "Saving..." : "Save changes"}
+          onPress={handleSave}
+          disabled={isSaving}
+        />
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>

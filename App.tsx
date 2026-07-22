@@ -51,7 +51,14 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
-      setIsConnected(state.isConnected);
+      // isConnected reflects the network adapter (e.g. attached to a
+      // Wi-Fi router); isInternetReachable additionally checks that the
+      // connection actually reaches the internet. Treat either as offline,
+      // but don't flip to the offline screen on isInternetReachable's
+      // transient `null` ("still checking") state.
+      const offline =
+        state.isConnected === false || state.isInternetReachable === false;
+      setIsConnected(!offline);
     });
     return unsubscribe;
   }, []);
@@ -62,7 +69,9 @@ export default function App() {
     return (
       <NoInternetScreen
         onRetry={() =>
-          NetInfo.fetch().then((s) => setIsConnected(s.isConnected))
+          NetInfo.fetch().then((s) =>
+            setIsConnected(!(s.isConnected === false || s.isInternetReachable === false)),
+          )
         }
       />
     );

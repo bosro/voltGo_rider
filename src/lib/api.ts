@@ -231,6 +231,19 @@ export const riderApi = {
   /** PUT /rider/location — called by useLocationTracking heartbeat */
   updateLocation: (latitude: number, longitude: number) =>
     api.put("/rider/location", { lat: latitude, lng: longitude }),
+  /**
+   * PATCH /rider/auth/profile — update full name / email.
+   *
+   * NOTE: this endpoint is not listed in the Voltgo API docs we were given
+   * (only GET /rider/me, PUT /rider/status and PUT /rider/location are
+   * documented for riders — the customer app has the equivalent
+   * PATCH /customer/auth/profile). This mirrors that customer pattern and
+   * request shape (full_name/email), but it needs to be confirmed against
+   * the actual backend. If it 404s, ProfileScreen will surface a real error
+   * instead of the old fake "saved" toast.
+   */
+  updateProfile: (body: { full_name?: string; email?: string }) =>
+    api.patch<{ data: RiderProfile }>("/rider/auth/profile", body),
 };
 
 export const ordersApi = {
