@@ -53,6 +53,34 @@ export function useRiderProfile() {
   });
 }
 
+// ── Update profile (name / email) ─────────────────────────────────────────────
+/**
+ * Persists name/email to the backend via PATCH /rider/auth/profile, then
+ * updates the local store + refetches so the UI reflects what the server
+ * actually saved (rather than optimistically trusting local state, which is
+ * what caused email edits to silently revert on re-entering the screen).
+ */
+export function useUpdateRiderProfile() {
+  const { updateRider } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: { full_name?: string; email?: string }) =>
+      riderApi.updateProfile(body),
+
+    onSuccess: (response) => {
+      const raw = response.data?.data as any;
+      if (raw) {
+        updateRider({
+          ...raw,
+          name: raw.full_name ?? raw.name,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: RIDER_QUERY_KEYS.profile });
+    },
+  });
+}
+
 // ── Toggle online / offline ───────────────────────────────────────────────────
 export function useToggleStatus() {
   const { setOnline, setTogglingStatus } = useRiderStore();

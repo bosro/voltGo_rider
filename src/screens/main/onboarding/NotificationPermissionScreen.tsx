@@ -40,7 +40,7 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-// import * as Notifications from "expo-notifications"; // npx expo install expo-notifications
+import * as Notifications from "expo-notifications";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SvgXml } from "react-native-svg";
@@ -100,31 +100,28 @@ export default function NotificationPermissionScreen() {
     ]).start();
   }, []);
 
-  // const handleAllow = async () => {
-  //   try {
-  //     const { status: existingStatus } =
-  //       await Notifications.getPermissionsAsync();
-  //     let finalStatus = existingStatus;
-  //     if (existingStatus !== "granted") {
-  //       const { status } = await Notifications.requestPermissionsAsync();
-  //       finalStatus = status;
-  //     }
-  //     if (finalStatus !== "granted") {
-  //       // User denied — still proceed to main app
-  //       Alert.alert(
-  //         "Notifications blocked",
-  //         "You can enable notifications later in your device Settings.",
-  //         [{ text: "OK", onPress: () => navigation.replace("MainApp") }],
-  //       );
-  //       return;
-  //     }
-  //   } catch (e) {
-  //     // Notification API might not be available in Expo Go — proceed anyway
-  //   }
-  //   navigation.replace("MainApp");
-  // };
-
-  const handleAllow = () => {
+  const handleAllow = async () => {
+    try {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        // User denied — still proceed to main app, they can flip it on
+        // later from device Settings.
+        Alert.alert(
+          "Notifications blocked",
+          "You can enable notifications later in your device Settings.",
+          [{ text: "OK", onPress: () => navigation.replace("MainApp") }],
+        );
+        return;
+      }
+    } catch (e) {
+      // Notification API might not be available in Expo Go — proceed anyway
+    }
     navigation.replace("MainApp");
   };
 

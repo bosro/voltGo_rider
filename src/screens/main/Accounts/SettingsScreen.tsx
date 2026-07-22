@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Animated,
   Platform,
   Image,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { Colors, Typography, Radius } from '../../../theme';
@@ -135,12 +135,12 @@ const handleDeleteConfirm = async () => {
         visible={logoutModalVisible}
         title="Log out"
         message="Are you sure you want to log out of your account?"
-        confirmLabel="Log out"
-        cancelLabel="Cancel"
-        variant="danger"
+        primaryLabel="Log out"
+        secondaryLabel="Cancel"
+        danger
         loading={logoutLoading}
-        onConfirm={handleLogoutConfirm}
-        onCancel={() => setLogoutModalVisible(false)}
+        onPrimary={handleLogoutConfirm}
+        onSecondary={() => setLogoutModalVisible(false)}
       />
 
       {/* Delete account modal */}
@@ -148,11 +148,11 @@ const handleDeleteConfirm = async () => {
         visible={deleteModalVisible}
         title="Delete account"
         message="This will permanently delete your account and all your data. This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        variant="danger"
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteModalVisible(false)}
+        primaryLabel="Delete"
+        secondaryLabel="Cancel"
+        danger
+        onPrimary={handleDeleteConfirm}
+        onSecondary={() => setDeleteModalVisible(false)}
       />
     </SafeAreaView>
   );
