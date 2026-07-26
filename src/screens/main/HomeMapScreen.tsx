@@ -33,6 +33,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   StatusBar,
   StyleSheet,
@@ -189,7 +190,44 @@ export default function HomeMapScreen() {
         },
       });
     } else {
-      toggleStatus(true);
+      if (!rider?.email_verified) {
+        Alert.alert(
+          "Verify your email",
+          "You need to verify your email address before going online and accepting orders.",
+          [
+            { text: "Not now", style: "cancel" },
+            {
+              text: "Verify now",
+              onPress: () =>
+                navigation.navigate("EmailVerification", {
+                  returnTo: "MainTabs",
+                }),
+            },
+          ],
+        );
+        return;
+      }
+      toggleStatus(true, {
+        onError: (err: any) => {
+          const msg: string = err?.response?.data?.message ?? "";
+          if (/email/i.test(msg) && /verif/i.test(msg)) {
+            Alert.alert(
+              "Verify your email",
+              "You need to verify your email address before going online and accepting orders.",
+              [
+                { text: "Not now", style: "cancel" },
+                {
+                  text: "Verify now",
+                  onPress: () =>
+                    navigation.navigate("EmailVerification", {
+                      returnTo: "MainTabs",
+                    }),
+                },
+              ],
+            );
+          }
+        },
+      });
     }
   };
 

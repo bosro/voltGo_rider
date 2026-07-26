@@ -154,7 +154,12 @@ export function useRiderMe() {
     queryKey: AUTH_QUERY_KEYS.me,
     queryFn: async () => {
       const response = await riderApi.getProfile();
-      const profile = response.data.data;
+      const raw: any = response.data.data;
+      const profile = {
+        ...raw,
+        name: raw.full_name ?? raw.name ?? "",
+        avatar_url: raw.profile_image_url ?? raw.avatar_url ?? null,
+      };
       updateRider(profile); // keep Zustand store in sync
       return profile;
     },
