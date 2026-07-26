@@ -130,5 +130,8 @@ export type MainStackParamList = {
   Security: undefined;
   Support: undefined;
   Settings: undefined;
+
+  /** Reachable from anywhere — Profile CTA, or the go-online / accept-order gate */
+  EmailVerification: { returnTo?: string; returnParams?: any };
 };
 

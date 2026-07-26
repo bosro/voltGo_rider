@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
 import { FieldLabel, InputField, NavyButton } from "../../../components/common";
 import ConfirmModal from "../../../components/common/ConfirmModal"; // ← adjust path
-import { useRiderProfile, useUpdateRiderProfile } from "../../../hooks/rider/useRider";
+import { useRiderProfile, useUpdateRiderProfile, useUpdateRiderProfileImage } from "../../../hooks/rider/useRider";
 import { useAuthStore } from "../../../store/authStore";
 import { Colors, Typography } from "../../../theme";
 
@@ -35,8 +35,10 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const toast = useToast();
   const { rider, updateRider } = useAuthStore();
+  const emailVerified = !!rider?.email_verified;
   const { isLoading } = useRiderProfile();
   const { mutateAsync: saveProfile, isPending: isSaving } = useUpdateRiderProfile();
+  const { mutateAsync: uploadPhoto, isPending: isUploadingPhoto } = useUpdateRiderProfileImage();
 
   const [name, setName] = useState(rider?.name ?? "");
   const [email, setEmail] = useState(rider?.email ?? "");
@@ -64,13 +66,29 @@ export default function ProfileScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.85,
+      quality: 0.7,
+      base64: true,
     });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setAvatarUri(result.assets[0].uri);
+    if (result.canceled || !result.assets?.[0]?.base64) return;
+
+    const asset = result.assets[0];
+    // Show it immediately while the upload is in flight
+    setAvatarUri(asset.uri);
+
+    const mime = asset.mimeType ?? "image/jpeg";
+    const dataUri = `data:${mime};base64,${asset.base64}`;
+    try {
+      await uploadPhoto(dataUri);
+      toast.success("Photo updated");
+    } catch (err: any) {
+      // Roll back to whatever the server actually has on file
+      setAvatarUri(rider?.avatar_url ?? null);
+      toast.error(
+        err?.response?.data?.message ?? "Couldn't upload photo. Please try again.",
+      );
     }
   };
 
@@ -147,8 +165,13 @@ export default function ProfileScreen() {
             style={styles.cameraBtn}
             onPress={handlePickAvatar}
             activeOpacity={0.85}
+            disabled={isUploadingPhoto}
           >
-            <SvgXml xml={cameraEditSvg} width={16} height={14} />
+            {isUploadingPhoto ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <SvgXml xml={cameraEditSvg} width={16} height={14} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -170,7 +193,26 @@ export default function ProfileScreen() {
           style={styles.readOnly}
         />
 
-        <FieldLabel label="Email" />
+        <View style={styles.emailLabelRow}>
+          <FieldLabel label="Email" />
+          {!!email && (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("EmailVerification", { returnTo: "Profile" })
+              }
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text
+                style={[
+                  styles.emailStatus,
+                  emailVerified && styles.emailStatusVerified,
+                ]}
+              >
+                {emailVerified ? "Verified ✓" : "Not verified · Verify"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <InputField
           iconSvg={emailSvg}
           placeholder="Enter email"
@@ -193,6 +235,19 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  emailLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  emailStatus: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 12,
+    color: Colors.orange,
+  },
+  emailStatusVerified: {
+    color: Colors.textGreen,
+  },
   safe: { flex: 1, backgroundColor: Colors.white },
   header: {
     flexDirection: "row",

@@ -232,18 +232,27 @@ export const riderApi = {
   updateLocation: (latitude: number, longitude: number) =>
     api.put("/rider/location", { lat: latitude, lng: longitude }),
   /**
-   * PATCH /rider/auth/profile — update full name / email.
-   *
-   * NOTE: this endpoint is not listed in the Voltgo API docs we were given
-   * (only GET /rider/me, PUT /rider/status and PUT /rider/location are
-   * documented for riders — the customer app has the equivalent
-   * PATCH /customer/auth/profile). This mirrors that customer pattern and
-   * request shape (full_name/email), but it needs to be confirmed against
-   * the actual backend. If it 404s, ProfileScreen will surface a real error
-   * instead of the old fake "saved" toast.
+   * PATCH /rider/profile — update full name / email.
+   * Confirmed against the backend's Swagger update (previously this app
+   * guessed /rider/auth/profile since it wasn't documented; the real path
+   * is /rider/profile — fixed here).
    */
   updateProfile: (body: { full_name?: string; email?: string }) =>
-    api.patch<{ data: RiderProfile }>("/rider/auth/profile", body),
+    api.patch<{ data: RiderProfile }>("/rider/profile", body),
+
+  /** PATCH /rider/profile-image — body: { profile_image: base64 data URI } */
+  updateProfileImage: (base64DataUri: string) =>
+    api.patch<{ data: RiderProfile }>("/rider/profile-image", {
+      profile_image: base64DataUri,
+    }),
+
+  /** POST /rider/send-otp-email — sends a 5-digit OTP to the rider's email
+   * on file. Requires an email to already be saved via updateProfile. */
+  sendEmailOtp: () => api.post<{ success: boolean; message: string }>("/rider/send-otp-email"),
+
+  /** POST /rider/verify-email */
+  verifyEmail: (otp: string) =>
+    api.post<{ success: boolean; message: string }>("/rider/verify-email", { otp }),
 };
 
 export const ordersApi = {
@@ -326,6 +335,7 @@ export interface RiderProfile {
   full_name?: string;
   phone: string;
   email?: string | null;
+  email_verified?: boolean;
   avatar_url?: string | null;
   is_online: boolean;
   active_status?: string;

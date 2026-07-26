@@ -31,6 +31,7 @@ import NotificationsScreen from "@/screens/main/Accounts/NotificationsScreen";
 import SecurityScreen from "@/screens/main/Accounts/SecurityScreen";
 import SupportScreen from "@/screens/main/Accounts/SupportScreen";
 import SettingsScreen from "@/screens/main/Accounts/SettingsScreen";
+import EmailVerificationScreen from "@/screens/main/Accounts/EmailVerificationScreen";
 
 // ── Wallet sub-screens ─────────────────────────────────────────────
 import WithdrawScreen from "@/screens/main/wallet/WithdrawScreen";
@@ -233,6 +234,11 @@ export default function MainNavigator() {
         name="Settings"
         component={SettingsScreen}
         options={{ animation: "slide_from_right", gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="EmailVerification"
+        component={EmailVerificationScreen}
+        options={{ animation: "slide_from_bottom", gestureEnabled: true }}
       />
 
       {/* ── Wallet sub-screens ───────────────────────────────── */}

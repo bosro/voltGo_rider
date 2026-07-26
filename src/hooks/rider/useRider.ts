@@ -42,6 +42,7 @@ export function useRiderProfile() {
         ...raw,
         name: raw.full_name ?? raw.name ?? "",
         is_online: raw.active_status === "online",
+        avatar_url: raw.profile_image_url ?? raw.avatar_url ?? null,
       };
 
       updateRider(profile);
@@ -71,11 +72,57 @@ export function useUpdateRiderProfile() {
     onSuccess: (response) => {
       const raw = response.data?.data as any;
       if (raw) {
-        updateRider({
-          ...raw,
-          name: raw.full_name ?? raw.name,
-        });
+        // Only patch fields the response actually included — updateRider
+        // does a shallow merge, so blindly spreading a partial response
+        // (e.g. computing `name: raw.full_name ?? raw.name` when neither
+        // is present) would overwrite good local fields with undefined.
+        const patch: Record<string, any> = { ...raw };
+        if (raw.full_name !== undefined) patch.name = raw.full_name;
+        if (raw.profile_image_url !== undefined)
+          patch.avatar_url = raw.profile_image_url;
+        updateRider(patch);
       }
+      queryClient.invalidateQueries({ queryKey: RIDER_QUERY_KEYS.profile });
+    },
+  });
+}
+
+// ── Update profile photo ──────────────────────────────────────────────────────
+export function useUpdateRiderProfileImage() {
+  const { updateRider } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (base64DataUri: string) =>
+      riderApi.updateProfileImage(base64DataUri),
+
+    onSuccess: (response) => {
+      const raw = response.data?.data as any;
+      // Confirmed live: this endpoint's response is just
+      // { id, profile_image_url } — not the full profile. Only patch the
+      // one field that actually changed; the pending invalidateQueries
+      // refetch will reconcile everything else via useRiderProfile.
+      if (raw?.profile_image_url !== undefined) {
+        updateRider({ avatar_url: raw.profile_image_url });
+      }
+      queryClient.invalidateQueries({ queryKey: RIDER_QUERY_KEYS.profile });
+    },
+  });
+}
+
+// ── Email verification ────────────────────────────────────────────────────────
+export function useSendRiderEmailOtp() {
+  return useMutation({ mutationFn: () => riderApi.sendEmailOtp() });
+}
+
+export function useVerifyRiderEmailOtp() {
+  const { updateRider } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (otp: string) => riderApi.verifyEmail(otp),
+    onSuccess: () => {
+      updateRider({ email_verified: true });
       queryClient.invalidateQueries({ queryKey: RIDER_QUERY_KEYS.profile });
     },
   });
