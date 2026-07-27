@@ -7,6 +7,13 @@
  *  - OrderStatus now includes 'rider_arriving' (socket spec) alongside
  *    'arrived' so both REST and socket status values are valid.
  *  - RiderProfile.is_online mapped from active_status correctly.
+ *  - FIX: /token/refresh now sends/reads camelCase (refreshToken /
+ *    accessToken), matching the confirmed live response shape from
+ *    /customer/auth/login and /rider/auth/login (both return
+ *    "token" / "refreshToken", not snake_case). The previous
+ *    snake_case request body + response parsing here almost certainly
+ *    didn't match what the backend actually expects/returns, which
+ *    would make silent 401 refreshes fail and force rider logouts.
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -165,12 +172,28 @@ api.interceptors.response.use(
       );
       if (!refreshToken) throw new Error("No refresh token");
 
+      // FIX: request body key was `refresh_token` (snake_case). Confirmed
+      // live login responses from both /customer/auth/login and
+      // /rider/auth/login return "token" / "refreshToken" (camelCase), so
+      // this endpoint's request body almost certainly expects the same
+      // convention.
       const { data } = await axios.post(`${BASE_URL}/token/refresh`, {
-        refresh_token: refreshToken,
+        refreshToken,
       });
-      const newAccess: string = data?.data?.access_token ?? data?.access_token;
+
+      // FIX: response parsing was reading `access_token` / `refresh_token`
+      // (snake_case). Switched to camelCase to match the confirmed
+      // convention; kept a snake_case fallback in case this one endpoint
+      // genuinely differs from /auth/login — remove the fallback once
+      // you've confirmed the actual shape in a live 401 test.
+      const newAccess: string =
+        data?.data?.accessToken ?? data?.accessToken ??
+        data?.data?.access_token ?? data?.access_token;
       const newRefresh: string =
+        data?.data?.refreshToken ?? data?.refreshToken ??
         data?.data?.refresh_token ?? data?.refresh_token ?? refreshToken;
+
+      if (!newAccess) throw new Error("No access token in refresh response");
 
       await setTokens(newAccess, newRefresh);
       processQueue(null, newAccess);
@@ -209,10 +232,12 @@ export const authApi = {
       otp,
       new_password: password,
     }),
-  refreshToken: (refresh_token: string) =>
-    api.post<TokenPair>("/token/refresh", { refresh_token }),
-  revokeToken: (refresh_token: string) =>
-    api.post("/token/revoke", { refresh_token }),
+  // FIX: aligned with camelCase convention confirmed by live login
+  // responses. Previously sent/typed as refresh_token (TokenPair type).
+  refreshToken: (refreshToken: string) =>
+    api.post<TokenPair>("/token/refresh", { refreshToken }),
+  revokeToken: (refreshToken: string) =>
+    api.post("/token/revoke", { refreshToken }),
 };
 
 export const kycApi = {
@@ -290,9 +315,10 @@ export const paymentApi = {
 // ── Types ─────────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
+// FIX: aligned with camelCase convention confirmed by live login responses.
 export interface TokenPair {
-  access_token: string;
-  refresh_token: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export interface LoginResponse {

@@ -47,7 +47,11 @@ export default function EmailVerificationScreen() {
   const returnParams = route.params?.returnParams;
   const toast = useToast();
 
-  const { data: profileRes } = useRiderProfile();
+  // FIX: destructure refetch + isFetching so we can force a fresh profile
+  // fetch on mount, the same way the customer app does. This screen can be
+  // reached from HomeMapScreen's go-online gate as well as ProfileScreen,
+  // so we can't assume the 5-minute-stale cached profile is current.
+  const { data: profileRes, refetch: refetchProfile } = useRiderProfile();
   const email = (profileRes?.data as any)?.email as string | null | undefined;
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
@@ -60,14 +64,39 @@ export default function EmailVerificationScreen() {
   const sendOtpMutation = useSendRiderEmailOtp();
   const verifyMutation = useVerifyRiderEmailOtp();
 
+  const didAutoSend = useRef(false);
+
+  // FIX: tracks whether the forced refetch below has actually completed.
+  // The previous version called `handleSend(true)` once, synchronously, in
+  // an empty-dependency-array effect — using whatever `email` happened to
+  // be in the closure on the very first render. If this screen is opened
+  // before the profile query has resolved (e.g. straight from the
+  // go-online gate), `email` would be undefined and handleSend would
+  // silently no-op forever, since nothing re-triggers it once the profile
+  // data actually arrives.
+  const [freshChecked, setFreshChecked] = useState(false);
+
   useEffect(() => {
     Animated.timing(fadeIn, {
       toValue: 1,
       duration: 350,
       useNativeDriver: true,
     }).start();
-    handleSend(true);
   }, []);
+
+  // Force a fresh profile fetch every time this screen mounts.
+  useEffect(() => {
+    refetchProfile().finally(() => setFreshChecked(true));
+  }, []);
+
+  // Auto-send only once the fresh fetch has actually completed AND we have
+  // a real email to send to.
+  useEffect(() => {
+    if (email && freshChecked && !didAutoSend.current) {
+      didAutoSend.current = true;
+      handleSend(true);
+    }
+  }, [email, freshChecked]);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -144,6 +173,12 @@ export default function EmailVerificationScreen() {
     }
   };
 
+  // FIX: while the forced refetch hasn't resolved yet, show the loading
+  // copy even if a stale cached email/value already exists, and keep the
+  // OTP boxes / resend / verify controls disabled — mirrors the customer
+  // screen's `stillResolving` guard.
+  const stillResolving = !freshChecked;
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
@@ -165,11 +200,16 @@ export default function EmailVerificationScreen() {
 
         <Animated.View style={[styles.content, { opacity: fadeIn }]}>
           <Text style={styles.heading}>Confirm it's you</Text>
-          <Text style={styles.subtitle}>
-            {email
-              ? `Enter the 5-digit code we sent to ${email}`
-              : "Add an email address in your profile to verify it."}
-          </Text>
+
+          {stillResolving ? (
+            <Text style={styles.subtitle}>Checking your account…</Text>
+          ) : (
+            <Text style={styles.subtitle}>
+              {email
+                ? `Enter the 5-digit code we sent to ${email}`
+                : "Add an email address in your profile to verify it."}
+            </Text>
+          )}
 
           <Animated.View
             style={[styles.otpRow, { transform: [{ translateX: shakeAnim }] }]}
@@ -187,7 +227,7 @@ export default function EmailVerificationScreen() {
                 keyboardType="number-pad"
                 maxLength={OTP_LENGTH}
                 textAlign="center"
-                editable={!!email}
+                editable={!!email && !stillResolving}
                 selectionColor={Colors.primary}
                 caretHidden
               />
@@ -196,7 +236,7 @@ export default function EmailVerificationScreen() {
 
           <TouchableOpacity
             onPress={() => handleSend(false)}
-            disabled={countdown > 0 || sendOtpMutation.isPending || !email}
+            disabled={countdown > 0 || sendOtpMutation.isPending || !email || stillResolving}
           >
             <Text style={[styles.resend, countdown === 0 && email && styles.resendActive]}>
               {sendOtpMutation.isPending
@@ -214,11 +254,11 @@ export default function EmailVerificationScreen() {
           <TouchableOpacity
             style={[
               styles.button,
-              (verifyMutation.isPending || !email) && { opacity: 0.6 },
+              (verifyMutation.isPending || !email || stillResolving) && { opacity: 0.6 },
             ]}
             activeOpacity={0.85}
             onPress={handleVerify}
-            disabled={verifyMutation.isPending || !email}
+            disabled={verifyMutation.isPending || !email || stillResolving}
           >
             {verifyMutation.isPending ? (
               <ActivityIndicator color={Colors.navy} />
