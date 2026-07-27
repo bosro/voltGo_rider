@@ -1,5 +1,5 @@
 /**
- * ProfileScreen.tsx
+ * ProfileScreen.tsx rider
  */
 import { useToast } from "@/components/common/Toast";
 import { useNavigation } from "@react-navigation/native";
@@ -45,6 +45,14 @@ export default function ProfileScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(
     rider?.avatar_url ?? null,
   );
+
+  // FIX: true whenever the email field has been edited but not yet saved.
+  // POST /rider/send-otp-email always sends to whatever email is saved on
+  // the server, NOT to whatever is currently typed here, so we must not
+  // let the rider jump into verification while there's a mismatch — same
+  // fix applied to the customer app's ProfileScreen.
+  const savedEmail = rider?.email ?? "";
+  const hasUnsavedEmailChange = email !== savedEmail;
 
   // ← ConfirmModal: save confirmation — rider taps "Done" to close and go back,
   //   making the success state explicit rather than a disappearing toast during navigation.
@@ -106,6 +114,18 @@ export default function ProfileScreen() {
           : (err?.response?.data?.message ?? "Couldn't save your changes. Please try again."),
       );
     }
+  };
+
+  // FIX: guard the Verify tap the same way as the customer app — if the
+  // email field has unsaved edits, sending them to EmailVerificationScreen
+  // would verify the OLD saved email while implying it verifies what's
+  // currently typed.
+  const handleVerifyPress = () => {
+    if (hasUnsavedEmailChange) {
+      toast.error("Save your email changes before verifying this address.");
+      return;
+    }
+    navigation.navigate("EmailVerification", { returnTo: "Profile" });
   };
 
   if (isLoading && !rider) {
@@ -197,18 +217,22 @@ export default function ProfileScreen() {
           <FieldLabel label="Email" />
           {!!email && (
             <TouchableOpacity
-              onPress={() =>
-                navigation.navigate("EmailVerification", { returnTo: "Profile" })
-              }
+              onPress={handleVerifyPress}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
               <Text
                 style={[
                   styles.emailStatus,
                   emailVerified && styles.emailStatusVerified,
+                  // FIX: visually de-emphasize when verify would be a no-op
+                  hasUnsavedEmailChange && styles.emailStatusDisabled,
                 ]}
               >
-                {emailVerified ? "Verified ✓" : "Not verified · Verify"}
+                {hasUnsavedEmailChange
+                  ? "Save to verify"
+                  : emailVerified
+                    ? "Verified ✓"
+                    : "Not verified · Verify"}
               </Text>
             </TouchableOpacity>
           )}
@@ -247,6 +271,10 @@ const styles = StyleSheet.create({
   },
   emailStatusVerified: {
     color: Colors.textGreen,
+  },
+  // FIX: new style for the "Save to verify" state
+  emailStatusDisabled: {
+    color: Colors.textMuted,
   },
   safe: { flex: 1, backgroundColor: Colors.white },
   header: {
