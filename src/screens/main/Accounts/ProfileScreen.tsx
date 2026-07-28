@@ -49,8 +49,7 @@ export default function ProfileScreen() {
   // FIX: true whenever the email field has been edited but not yet saved.
   // POST /rider/send-otp-email always sends to whatever email is saved on
   // the server, NOT to whatever is currently typed here, so we must not
-  // let the rider jump into verification while there's a mismatch — same
-  // fix applied to the customer app's ProfileScreen.
+  // let the rider jump into verification while there's a mismatch.
   const savedEmail = rider?.email ?? "";
   const hasUnsavedEmailChange = email !== savedEmail;
 
@@ -116,10 +115,9 @@ export default function ProfileScreen() {
     }
   };
 
-  // FIX: guard the Verify tap the same way as the customer app — if the
-  // email field has unsaved edits, sending them to EmailVerificationScreen
-  // would verify the OLD saved email while implying it verifies what's
-  // currently typed.
+  // FIX: guard the Verify tap — if the email field has unsaved edits,
+  // sending the rider to EmailVerificationScreen would verify the OLD
+  // saved email while implying it verifies what's currently typed.
   const handleVerifyPress = () => {
     if (hasUnsavedEmailChange) {
       toast.error("Save your email changes before verifying this address.");
@@ -224,7 +222,6 @@ export default function ProfileScreen() {
                 style={[
                   styles.emailStatus,
                   emailVerified && styles.emailStatusVerified,
-                  // FIX: visually de-emphasize when verify would be a no-op
                   hasUnsavedEmailChange && styles.emailStatusDisabled,
                 ]}
               >
@@ -272,7 +269,6 @@ const styles = StyleSheet.create({
   emailStatusVerified: {
     color: Colors.textGreen,
   },
-  // FIX: new style for the "Save to verify" state
   emailStatusDisabled: {
     color: Colors.textMuted,
   },
