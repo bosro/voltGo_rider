@@ -47,10 +47,13 @@ export default function EmailVerificationScreen() {
   const returnParams = route.params?.returnParams;
   const toast = useToast();
 
-  // FIX: destructure refetch + isFetching so we can force a fresh profile
-  // fetch on mount, the same way the customer app does. This screen can be
-  // reached from HomeMapScreen's go-online gate as well as ProfileScreen,
-  // so we can't assume the 5-minute-stale cached profile is current.
+  // FIX: destructure refetch so we can force a fresh profile fetch on
+  // mount, the same way the customer app does. This screen can be reached
+  // from HomeMapScreen's go-online gate as well as ProfileScreen, so we
+  // can't assume the cached profile is current — and the original
+  // one-shot `handleSend(true)` in an empty-dependency effect used
+  // whatever `email` happened to be in the closure on the very first
+  // render, silently no-op'ing forever if the profile hadn't loaded yet.
   const { data: profileRes, refetch: refetchProfile } = useRiderProfile();
   const email = (profileRes?.data as any)?.email as string | null | undefined;
 
@@ -65,15 +68,6 @@ export default function EmailVerificationScreen() {
   const verifyMutation = useVerifyRiderEmailOtp();
 
   const didAutoSend = useRef(false);
-
-  // FIX: tracks whether the forced refetch below has actually completed.
-  // The previous version called `handleSend(true)` once, synchronously, in
-  // an empty-dependency-array effect — using whatever `email` happened to
-  // be in the closure on the very first render. If this screen is opened
-  // before the profile query has resolved (e.g. straight from the
-  // go-online gate), `email` would be undefined and handleSend would
-  // silently no-op forever, since nothing re-triggers it once the profile
-  // data actually arrives.
   const [freshChecked, setFreshChecked] = useState(false);
 
   useEffect(() => {
@@ -89,8 +83,8 @@ export default function EmailVerificationScreen() {
     refetchProfile().finally(() => setFreshChecked(true));
   }, []);
 
-  // Auto-send only once the fresh fetch has actually completed AND we have
-  // a real email to send to.
+  // Auto-send only once the fresh fetch has completed AND we have a real
+  // email to send to.
   useEffect(() => {
     if (email && freshChecked && !didAutoSend.current) {
       didAutoSend.current = true;
@@ -173,10 +167,8 @@ export default function EmailVerificationScreen() {
     }
   };
 
-  // FIX: while the forced refetch hasn't resolved yet, show the loading
-  // copy even if a stale cached email/value already exists, and keep the
-  // OTP boxes / resend / verify controls disabled — mirrors the customer
-  // screen's `stillResolving` guard.
+  // FIX: while the forced refetch hasn't resolved yet, show loading copy
+  // and keep controls disabled — mirrors the customer screen.
   const stillResolving = !freshChecked;
 
   return (
@@ -200,7 +192,6 @@ export default function EmailVerificationScreen() {
 
         <Animated.View style={[styles.content, { opacity: fadeIn }]}>
           <Text style={styles.heading}>Confirm it's you</Text>
-
           {stillResolving ? (
             <Text style={styles.subtitle}>Checking your account…</Text>
           ) : (
