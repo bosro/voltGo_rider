@@ -55,7 +55,14 @@ export default function EmailVerificationScreen() {
   // whatever `email` happened to be in the closure on the very first
   // render, silently no-op'ing forever if the profile hadn't loaded yet.
   const { data: profileRes, refetch: refetchProfile } = useRiderProfile();
-  const email = (profileRes?.data as any)?.email as string | null | undefined;
+  // FIX: useRiderProfile's queryFn returns the profile object directly
+  // (see useRider.ts — `return profile;`), not wrapped in an extra `data`
+  // field. The previous `profileRes?.data?.email` was reaching one level
+  // too deep and was always undefined, which meant `email` was always
+  // falsy here — handleSend's `if (!email) return` guard silently blocked
+  // every auto-send AND every manual "Send code" tap, so the countdown
+  // never started and /rider/send-otp-email was never actually hit.
+  const email = (profileRes as any)?.email as string | null | undefined;
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [countdown, setCountdown] = useState(0);
