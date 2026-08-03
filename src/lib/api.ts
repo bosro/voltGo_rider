@@ -76,12 +76,12 @@ function logRequest(config: InternalAxiosRequestConfig): void {
       isFormData
         ? "[FormData]"
         : JSON.stringify(
-            typeof config.data === "string"
-              ? JSON.parse(config.data)
-              : config.data,
-            null,
-            2,
-          ),
+          typeof config.data === "string"
+            ? JSON.parse(config.data)
+            : config.data,
+          null,
+          2,
+        ),
     );
   }
 }
@@ -224,6 +224,22 @@ export const authApi = {
     api.post<TokenPair>("/token/refresh", { refresh_token }),
   revokeToken: (refresh_token: string) =>
     api.post("/token/revoke", { refresh_token }),
+
+  // ── New: social login ──────────────────────────────────────────────
+  socialLogin: (payload: {
+    provider: "google" | "apple";
+    id_token: string;
+    full_name?: string;
+  }) => api.post<SocialAuthResponse>("/rider/auth/social", payload),
+
+  addPhone: (phone: string) =>
+    api.post("/rider/auth/add-phone", { phone }),
+
+  verifyAddedPhone: (phone: string, otp: string) =>
+    api.post<{ data: RiderProfile }>("/rider/auth/verify-added-phone", {
+      phone,
+      otp,
+    }),
 };
 
 export const kycApi = {
@@ -317,6 +333,24 @@ export interface LoginResponse {
     phone: string;
     kyc_status: string;
     phone_verified: boolean;
+  };
+}
+
+
+export interface SocialAuthResponse {
+  status: number;
+  message: string;
+  data: {
+    token: string;
+    refreshToken: string;
+    id: string;
+    full_name: string;
+    phone: string | null;
+    email?: string;
+    kyc_status: string;
+    phone_verified: boolean;
+    /** true when this is a new/linked account that has no verified phone yet */
+    requires_phone: boolean;
   };
 }
 
@@ -457,3 +491,4 @@ export interface AddPaymentMethodPayload {
   account_name: string;
   provider?: string;
 }
+

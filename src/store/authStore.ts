@@ -134,3 +134,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isAuthenticated: false, accessToken: null, rider: null });
   },
 }));
+
+
+

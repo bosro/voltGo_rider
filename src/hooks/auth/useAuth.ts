@@ -17,6 +17,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi, RegisterPayload, riderApi, RiderProfile } from "../../lib/api";
 import { useAuthStore } from "../../store/authStore";
 import { useRiderStore } from "../../store/riderStore";
+import { SocialCredential } from "@/lib/socialAuth";
 
 // ── Query keys ────────────────────────────────────────────────────────────────
 export const AUTH_QUERY_KEYS = {
@@ -123,6 +124,60 @@ export function useLoginRider() {
   });
 }
 
+
+// ── Social login (Google / Apple) ─────────────────────────────────────────────
+export function useSocialLogin() {
+  const { login } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (credential: SocialCredential) => authApi.socialLogin(credential),
+
+    onSuccess: async (response) => {
+      const data = response.data.data;
+
+      const rider: RiderProfile = {
+        id: data.id,
+        name: data.full_name ?? "",
+        full_name: data.full_name,
+        phone: data.phone ?? "",
+        email: data.email ?? null,
+        is_online: false,
+        kyc_status: (data.kyc_status as RiderProfile["kyc_status"]) ?? "pending",
+        created_at: new Date().toISOString(),
+      };
+
+      await login(data.token, data.refreshToken, rider);
+      queryClient.setQueryData(AUTH_QUERY_KEYS.me, rider);
+    },
+  });
+}
+
+// ── Add phone number (social accounts without one) ────────────────────────────
+export function useAddPhone() {
+  return useMutation({
+    mutationFn: (phone: string) => authApi.addPhone(phone),
+  });
+}
+
+// ── Verify phone added post-social-signup ──────────────────────────────────────
+export function useVerifyAddedPhone() {
+  const { updateRider } = useAuthStore();
+
+  return useMutation({
+    mutationFn: ({ phone, otp }: { phone: string; otp: string }) =>
+      authApi.verifyAddedPhone(phone, otp),
+
+    onSuccess: (response) => {
+      const raw: any = response.data.data;
+      updateRider({
+        phone: raw.phone,
+        active_status: raw.active_status,
+      });
+    },
+  });
+}
+
 // ── Logout ────────────────────────────────────────────────────────────────────
 export function useLogoutRider() {
   const { logout } = useAuthStore();
@@ -190,6 +245,7 @@ export function useResetPassword() {
     }) => authApi.resetPassword(phone, otp, password),
   });
 }
+
 
 
 

@@ -24,7 +24,10 @@ import {
   useLoginRider,
   useRegisterRider,
   useSendOtp,
+  useSocialLogin,
 } from "../../hooks/auth/useAuth";
+import { signInWithApple, signInWithGoogle } from "@/lib/socialAuth";
+import AppleIcon from "../../../assets/icons/apple.svg";
 
 export default function PhoneEntryScreen() {
   const navigation = useNavigation<any>();
@@ -45,6 +48,9 @@ export default function PhoneEntryScreen() {
 
   const isPending = isSendingOtp || isRegistering || isLoggingIn;
 
+  const { mutateAsync: socialLogin, isPending: isSocialLoggingIn } = useSocialLogin();
+  
+  
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeIn, {
@@ -124,15 +130,58 @@ export default function PhoneEntryScreen() {
     }
   };
 
-  const socialOptions = [
-    {
-      Icon: GoogleIcon,
-      w: 22,
-      h: 22,
-      label: isNewRider ? "Sign up with Google" : "Sign in with Google",
-      onPress: () => {},
-    },
-  ];
+
+  const handleGoogleSignIn = async () => {
+  try {
+    const credential = await signInWithGoogle();
+    const res = await socialLogin(credential);
+    if (res.data.data.requires_phone) {
+      navigation.navigate("AddPhone");
+    }
+    // else: isAuthenticated flips true in the store, RootNavigator takes over
+  } catch (err: any) {
+    if (err?.code !== "SIGN_IN_CANCELLED" && err?.message) {
+      toast.error("Google sign-in failed. Please try again.");
+    }
+  }
+};
+
+const handleAppleSignIn = async () => {
+  try {
+    const credential = await signInWithApple();
+    const res = await socialLogin(credential);
+    if (res.data.data.requires_phone) {
+      navigation.navigate("AddPhone");
+    }
+  } catch (err: any) {
+    if (err?.code !== "1001" /* user cancelled */) {
+      toast.error("Apple sign-in failed. Please try again.");
+    }
+  }
+};
+
+const socialOptions = [
+  {
+    Icon: GoogleIcon,
+    w: 22,
+    h: 22,
+    label: isNewRider ? "Sign up with Google" : "Sign in with Google",
+    onPress: handleGoogleSignIn,
+  },
+  ...(Platform.OS === "ios"
+    ? [
+        {
+          Icon: AppleIcon,
+          w: 20,
+          h: 20,
+          label: isNewRider ? "Sign up with Apple" : "Sign in with Apple",
+          onPress: handleAppleSignIn,
+        },
+      ]
+    : []),
+];
+
+ 
 
   // Add this just before the return statement:
   const digits = phone.trim().startsWith("0")
